@@ -2,9 +2,9 @@ import {
   getPermissionsAsync,
   getTodayStepCountAsync,
   isAvailableAsync,
+  PermissionStatus,
   requestPermissionsAsync,
 } from "expo-pedometer";
-import { PermissionStatus } from "expo-pedometer/build/ExpoPedometer.types";
 import { useCallback, useEffect, useState } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 

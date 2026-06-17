@@ -1,5 +1,5 @@
-import "react-native-gesture-handler";
 import "../global.css";
+import "react-native-gesture-handler";
 
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";

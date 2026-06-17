@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, type AppStateStatus } from "react-native";
+import { AppState, Platform, type AppStateStatus } from "react-native";
 
 import { useAppStore } from "../store/useAppStore";
 import type { FocusSessionType } from "../types";
@@ -112,10 +112,11 @@ export function useTimer(
   }, []);
 
   const fireSessionCompleteHaptic = useCallback(async () => {
+    if (Platform.OS === "web") return;
     try {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
-      // haptics unavailable on web/simulator
+      // haptics unavailable on simulator
     }
     onSessionCompleteRef.current?.();
   }, []);
