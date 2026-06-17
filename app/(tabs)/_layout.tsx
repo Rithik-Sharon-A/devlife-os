@@ -1,13 +1,14 @@
 import { Tabs } from "expo-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { shadows } from "../../utils/styles";
-
 import { AIChatSheet } from "../../components/ai/AIChatSheet";
+import { useTheme } from "../../context/ThemeContext";
 import { useAppStore } from "../../store/useAppStore";
+import { radii, spacing } from "../../utils/designTokens";
 import { isAIConfigured } from "../../utils/ai";
+import { shadows } from "../../utils/styles";
 
 const TAB_ICONS: Record<string, string> = {
   index: "🏠",
@@ -15,35 +16,73 @@ const TAB_ICONS: Record<string, string> = {
   food: "🍛",
   water: "💧",
   habits: "✅",
+  settings: "⚙️",
 };
 
 const TAB_BAR_HEIGHT = 56;
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
+  const { colors } = theme;
   const aiConfig = useAppStore((s) => s.aiConfig);
   const [chatOpen, setChatOpen] = useState(false);
 
   const showChatFab = isAIConfigured(aiConfig);
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: colors.background,
+        },
+        tabIcon: {
+          fontSize: 22,
+        },
+        fab: {
+          position: "absolute",
+          right: spacing.lg,
+          width: 56,
+          height: 56,
+          borderRadius: radii.pill,
+          backgroundColor: colors.accent,
+          alignItems: "center",
+          justifyContent: "center",
+          ...shadows.fab,
+          zIndex: 50,
+        },
+        fabIcon: {
+          fontSize: 24,
+        },
+      }),
+    [colors]
+  );
 
   return (
     <View style={styles.container}>
       <Tabs
         screenOptions={({ route }) => ({
           headerShown: false,
-          tabBarShowLabel: false,
+          tabBarShowLabel: true,
+          tabBarActiveTintColor: colors.accent,
+          tabBarInactiveTintColor: colors.textSecondary,
+          tabBarLabelStyle: {
+            fontSize: 11,
+            fontWeight: "600",
+          },
           tabBarStyle: {
-            backgroundColor: "#161a20",
-            borderTopColor: "#1f2937",
+            backgroundColor: colors.tabBar,
+            borderTopColor: colors.border,
             borderTopWidth: 1,
             height: TAB_BAR_HEIGHT + insets.bottom,
-            paddingTop: 8,
-            paddingBottom: insets.bottom + 4,
+            paddingTop: spacing.sm,
+            paddingBottom: insets.bottom + spacing.xs,
           },
-          tabBarActiveTintColor: "#7c6aff",
-          tabBarInactiveTintColor: "#64748b",
-          tabBarIcon: ({ color }) => (
-            <Text style={[styles.tabIcon, { color }]}>{TAB_ICONS[route.name] ?? "•"}</Text>
+          tabBarIcon: ({ color, focused }) => (
+            <Text style={[styles.tabIcon, { color, opacity: focused ? 1 : 0.85 }]}>
+              {TAB_ICONS[route.name] ?? "•"}
+            </Text>
           ),
         })}
       >
@@ -62,7 +101,7 @@ export default function TabLayout() {
           onPress={() => setChatOpen(true)}
           style={[
             styles.fab,
-            { bottom: TAB_BAR_HEIGHT + insets.bottom + 12 },
+            { bottom: TAB_BAR_HEIGHT + insets.bottom + spacing.md },
           ]}
         >
           <Text style={styles.fabIcon}>💬</Text>
@@ -73,28 +112,3 @@ export default function TabLayout() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0d0f12",
-  },
-  tabIcon: {
-    fontSize: 22,
-  },
-  fab: {
-    position: "absolute",
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#7c6aff",
-    alignItems: "center",
-    justifyContent: "center",
-    ...shadows.fab,
-    zIndex: 50,
-  },
-  fabIcon: {
-    fontSize: 24,
-  },
-});

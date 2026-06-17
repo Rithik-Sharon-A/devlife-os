@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useMemo } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -7,7 +8,8 @@ import {
   View,
 } from "react-native";
 
-import { uiTheme } from "./theme";
+import { useTheme } from "../../context/ThemeContext";
+import { radii } from "../../utils/designTokens";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 type ButtonSize = "sm" | "md" | "lg";
@@ -31,9 +33,104 @@ export function Button({
   loading = false,
   disabled = false,
 }: ButtonProps) {
+  const { theme } = useTheme();
+  const { colors } = theme;
   const inactive = disabled || loading;
-  const variantStyle = variantStyles[variant];
-  const sizeStyle = sizeStyles[size];
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        base: {
+          borderRadius: radii.md,
+          alignItems: "center",
+          justifyContent: "center",
+          flexDirection: "row",
+        },
+        contentRow: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        icon: {
+          marginRight: 8,
+        },
+        text: {
+          fontWeight: "600",
+        },
+        pressed: {
+          transform: [{ scale: 0.98 }],
+        },
+        sm: {
+          paddingVertical: 8,
+          paddingHorizontal: 16,
+        },
+        md: {
+          paddingVertical: 12,
+          paddingHorizontal: 20,
+        },
+        lg: {
+          paddingVertical: 16,
+          paddingHorizontal: 28,
+        },
+        smText: { fontSize: 13 },
+        mdText: { fontSize: 15 },
+        lgText: { fontSize: 17 },
+        primary: {
+          backgroundColor: colors.accent,
+        },
+        primaryText: { color: "#ffffff" },
+        primaryLoading: {
+          backgroundColor: `${colors.accent}B3`,
+        },
+        secondary: {
+          backgroundColor: colors.surface2,
+          borderWidth: 1,
+          borderColor: colors.border,
+        },
+        secondaryText: { color: colors.textPrimary },
+        ghost: {
+          backgroundColor: "transparent",
+        },
+        ghostText: { color: colors.accent },
+        danger: {
+          backgroundColor: colors.danger,
+        },
+        dangerText: { color: "#ffffff" },
+        disabled: {
+          backgroundColor: colors.surface3,
+          opacity: 0.5,
+        },
+        disabledText: { color: colors.textSecondary },
+      }),
+    [colors]
+  );
+
+  const sizeStyle =
+    size === "sm" ? styles.sm : size === "lg" ? styles.lg : styles.md;
+  const sizeText =
+    size === "sm" ? styles.smText : size === "lg" ? styles.lgText : styles.mdText;
+
+  let containerStyle = styles.primary;
+  let textStyle = styles.primaryText;
+
+  if (disabled) {
+    containerStyle = styles.disabled;
+    textStyle = styles.disabledText;
+  } else if (loading) {
+    containerStyle = styles.primaryLoading;
+    textStyle = styles.primaryText;
+  } else if (variant === "secondary") {
+    containerStyle = styles.secondary;
+    textStyle = styles.secondaryText;
+  } else if (variant === "ghost") {
+    containerStyle = styles.ghost;
+    textStyle = styles.ghostText;
+  } else if (variant === "danger") {
+    containerStyle = styles.danger;
+    textStyle = styles.dangerText;
+  }
+
+  const displayLabel = loading ? "Loading..." : label;
 
   return (
     <Pressable
@@ -41,79 +138,22 @@ export function Button({
       disabled={inactive}
       style={({ pressed }) => [
         styles.base,
-        sizeStyle.container,
-        variantStyle.container,
-        inactive && styles.disabled,
+        sizeStyle,
+        containerStyle,
         pressed && !inactive && styles.pressed,
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={variantStyle.text.color} />
+        <View style={styles.contentRow}>
+          <ActivityIndicator color="#ffffff" style={styles.icon} />
+          <Text style={[styles.text, sizeText, textStyle]}>{displayLabel}</Text>
+        </View>
       ) : (
         <View style={styles.contentRow}>
           {icon ? <View style={styles.icon}>{icon}</View> : null}
-          <Text style={[styles.text, sizeStyle.text, variantStyle.text]}>{label}</Text>
+          <Text style={[styles.text, sizeText, textStyle]}>{label}</Text>
         </View>
       )}
     </Pressable>
   );
 }
-
-const sizeStyles = {
-  sm: StyleSheet.create({
-    container: { minHeight: 36, paddingHorizontal: 12 },
-    text: { fontSize: 13 },
-  }),
-  md: StyleSheet.create({
-    container: { minHeight: 44, paddingHorizontal: 16 },
-    text: { fontSize: 15 },
-  }),
-  lg: StyleSheet.create({
-    container: { minHeight: 52, paddingHorizontal: 20 },
-    text: { fontSize: 16 },
-  }),
-} as const;
-
-const variantStyles = {
-  primary: StyleSheet.create({
-    container: { backgroundColor: uiTheme.accent },
-    text: { color: uiTheme.textPrimary },
-  }),
-  secondary: StyleSheet.create({
-    container: { backgroundColor: uiTheme.surface2, borderWidth: 1, borderColor: uiTheme.border },
-    text: { color: uiTheme.textPrimary },
-  }),
-  ghost: StyleSheet.create({
-    container: { backgroundColor: "transparent", borderWidth: 1, borderColor: uiTheme.border },
-    text: { color: uiTheme.textSecondary },
-  }),
-  danger: StyleSheet.create({
-    container: { backgroundColor: uiTheme.danger },
-    text: { color: "#1a1111" },
-  }),
-} as const;
-
-const styles = StyleSheet.create({
-  base: {
-    borderRadius: uiTheme.radiusInput,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  contentRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  icon: {
-    marginRight: 8,
-  },
-  text: {
-    fontWeight: "700",
-  },
-  disabled: {
-    opacity: 0.55,
-  },
-  pressed: {
-    transform: [{ scale: 0.98 }],
-  },
-});

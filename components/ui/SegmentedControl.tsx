@@ -1,6 +1,8 @@
+import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { uiTheme } from "./theme";
+import { useTheme } from "../../context/ThemeContext";
+import { radii } from "../../utils/designTokens";
 
 interface SegmentedControlProps {
   options: string[];
@@ -13,6 +15,40 @@ export function SegmentedControl({
   selected,
   onChange,
 }: SegmentedControlProps) {
+  const { theme } = useTheme();
+  const { colors } = theme;
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flexDirection: "row",
+          backgroundColor: colors.surface2,
+          borderRadius: radii.pill,
+          padding: 3,
+        },
+        segment: {
+          flex: 1,
+          borderRadius: radii.pill,
+          paddingVertical: 8,
+          alignItems: "center",
+        },
+        segmentActive: {
+          backgroundColor: colors.accent,
+        },
+        text: {
+          color: colors.textSecondary,
+          fontSize: 13,
+          fontWeight: "600",
+        },
+        textActive: {
+          color: "#ffffff",
+          fontWeight: "600",
+        },
+      }),
+    [colors]
+  );
+
   return (
     <View style={styles.container}>
       {options.map((option) => {
@@ -30,31 +66,3 @@ export function SegmentedControl({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    backgroundColor: uiTheme.surface2,
-    borderRadius: uiTheme.radiusPill,
-    borderWidth: 1,
-    borderColor: uiTheme.border,
-    padding: 4,
-  },
-  segment: {
-    flex: 1,
-    borderRadius: uiTheme.radiusPill,
-    paddingVertical: 8,
-    alignItems: "center",
-  },
-  segmentActive: {
-    backgroundColor: uiTheme.surface3,
-  },
-  text: {
-    color: uiTheme.textSecondary,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  textActive: {
-    color: uiTheme.textPrimary,
-  },
-});

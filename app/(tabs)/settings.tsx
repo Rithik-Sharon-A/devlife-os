@@ -14,11 +14,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { testAIConnection } from "../../utils/onboarding/testAIConnection";
+import { ThemePicker } from "../../components/settings/ThemePicker";
 import {
   SettingsRow,
   SettingsSection,
   SettingsToggle,
 } from "../../components/settings/SettingsSection";
+import { ModelPicker } from "../../components/settings/ModelPicker";
 import { TimePickerField } from "../../components/onboarding/TimePickerField";
 import { Badge } from "../../components/ui/Badge";
 import { BottomSheet } from "../../components/ui/BottomSheet";
@@ -26,7 +28,7 @@ import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { uiTheme } from "../../components/ui/theme";
-import { PROVIDERS } from "../../data/providers";
+import { findProviderModel, PROVIDERS } from "../../data/providers";
 import { useToast } from "../../hooks/useToast";
 import { useAppStore } from "../../store/useAppStore";
 import type {
@@ -171,6 +173,21 @@ export default function SettingsScreen() {
     return `${profile.dailyCalorieGoal.toLocaleString()} kcal`;
   }, [profile]);
 
+  const modelDisplayName = useMemo(() => {
+    if (!aiConfig?.model) return "—";
+    const match = findProviderModel(aiConfig.provider, aiConfig.model);
+    return match?.displayName ?? aiConfig.model;
+  }, [aiConfig]);
+
+  const sheetTitle =
+    sheet === "model"
+      ? "Select Model"
+      : sheet === "provider"
+        ? "Select Provider"
+        : "Edit";
+
+  const sheetHeight = sheet === "model" ? "full" : "half";
+
   const runAiTest = async () => {
     if (!aiConfig) return;
     setAiTesting(true);
@@ -265,6 +282,12 @@ export default function SettingsScreen() {
           <Badge label={GOAL_LABELS[profile.goalType]} color={uiTheme.accent} />
           <Button label="Edit Profile" variant="secondary" onPress={() => openSheet("profile")} />
         </View>
+
+        <SettingsSection title="Appearance">
+          <View style={{ paddingHorizontal: 14, paddingBottom: 16 }}>
+            <ThemePicker />
+          </View>
+        </SettingsSection>
 
         <SettingsSection title="Body & Goals">
           <SettingsRow
@@ -551,7 +574,7 @@ export default function SettingsScreen() {
           />
           <SettingsRow
             label="Model"
-            value={aiConfig?.model ?? "—"}
+            value={modelDisplayName}
             onPress={() => openSheet("model")}
           />
           <SettingsRow
@@ -632,8 +655,8 @@ export default function SettingsScreen() {
       <BottomSheet
         visible={sheet !== null}
         onClose={closeSheet}
-        title="Edit"
-        height="half"
+        title={sheetTitle}
+        height={sheetHeight}
       >
         {sheet === "profile" ? (
           <View style={styles.sheetForm}>
@@ -873,20 +896,15 @@ export default function SettingsScreen() {
         ) : null}
 
         {sheet === "model" && aiConfig ? (
-          <View style={styles.sheetForm}>
-            {PROVIDERS[aiConfig.provider].models.map((model) => (
-              <Button
-                key={model.id}
-                label={model.displayName}
-                variant={aiConfig.model === model.id ? "primary" : "secondary"}
-                onPress={() => {
-                  setAIConfig({ ...aiConfig, model: model.id, isConnected: false });
-                  showToast("Model updated");
-                  closeSheet();
-                }}
-              />
-            ))}
-          </View>
+          <ModelPicker
+            providerId={aiConfig.provider}
+            selectedModelId={aiConfig.model}
+            onSelect={(modelId) => {
+              setAIConfig({ ...aiConfig, model: modelId, isConnected: false });
+              showToast("Model updated");
+              closeSheet();
+            }}
+          />
         ) : null}
 
         {sheet === "apiKey" ? (

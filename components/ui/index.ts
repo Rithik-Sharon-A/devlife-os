@@ -7,6 +7,7 @@ export * from "./MoodSelector";
 export * from "./RingProgress";
 export * from "./ScoreRing";
 export * from "./SegmentedControl";
+export * from "./FocusSessionCard";
 export * from "./StatCard";
 export * from "./StreakDots";
 export * from "./theme";

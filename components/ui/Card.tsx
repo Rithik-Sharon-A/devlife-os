@@ -1,10 +1,12 @@
 import { type PropsWithChildren } from "react";
+import { useMemo } from "react";
 import { StyleSheet, type StyleProp, type ViewStyle, View } from "react-native";
 
-import { shadows } from "../../utils/styles";
-import { uiTheme } from "./theme";
+import { useTheme } from "../../context/ThemeContext";
+import { getCardStyle } from "../../utils/cardStyles";
+import { radii, spacing } from "../../utils/designTokens";
 
-type CardVariant = "default" | "elevated" | "bordered";
+type CardVariant = "default" | "elevated" | "bordered" | "themed";
 
 interface CardProps extends PropsWithChildren {
   style?: StyleProp<ViewStyle>;
@@ -15,39 +17,46 @@ interface CardProps extends PropsWithChildren {
 export function Card({
   children,
   style,
-  variant = "default",
+  variant = "themed",
   padded = true,
 }: CardProps) {
+  const { theme } = useTheme();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        themed: getCardStyle(theme),
+        default: {
+          backgroundColor: theme.colors.surface1,
+          borderRadius: radii.lg,
+        },
+        elevated: {
+          backgroundColor: theme.colors.surface2,
+          borderRadius: radii.lg,
+        },
+        bordered: {
+          backgroundColor: theme.colors.surface1,
+          borderRadius: radii.lg,
+          borderWidth: 1,
+          borderColor: theme.colors.border,
+        },
+        padded: {
+          padding: spacing.base,
+        },
+      }),
+    [theme]
+  );
+
+  const variantStyle =
+    variant === "themed"
+      ? styles.themed
+      : variant === "elevated"
+        ? styles.elevated
+        : variant === "bordered"
+          ? styles.bordered
+          : styles.default;
+
   return (
-    <View
-      style={[
-        styles.base,
-        padded && styles.padded,
-        variant === "elevated" && styles.elevated,
-        variant === "bordered" && styles.bordered,
-        style,
-      ]}
-    >
-      {children}
-    </View>
+    <View style={[variantStyle, padded && styles.padded, style]}>{children}</View>
   );
 }
-
-const styles = StyleSheet.create({
-  base: {
-    backgroundColor: uiTheme.surface1,
-    borderRadius: uiTheme.radiusCard,
-  },
-  padded: {
-    padding: 16,
-  },
-  elevated: {
-    backgroundColor: uiTheme.surface2,
-    ...shadows.medium,
-  },
-  bordered: {
-    backgroundColor: uiTheme.surface1,
-    borderWidth: 1,
-    borderColor: uiTheme.border,
-  },
-});

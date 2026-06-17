@@ -1,16 +1,52 @@
+import { radii, spacing } from "../../utils/designTokens";
+import { getActiveThemeColors } from "../../utils/themeBridge";
+
+/** Legacy theme accessor — reads active theme colors via bridge (updates on theme change). */
 export const uiTheme = {
-  background: "#0d0f12",
-  surface1: "#161a20",
-  surface2: "#1e232b",
-  surface3: "#252b35",
-  accent: "#7c6aff",
-  success: "#34d399",
-  warning: "#fbbf24",
-  danger: "#f87171",
-  textPrimary: "#e2e8f0",
-  textSecondary: "#64748b",
-  border: "#2a3140",
-  radiusCard: 12,
-  radiusInput: 8,
-  radiusPill: 999,
+  get background() {
+    return getActiveThemeColors().background;
+  },
+  get surface1() {
+    return getActiveThemeColors().surface1;
+  },
+  get surface2() {
+    return getActiveThemeColors().surface2;
+  },
+  get surface3() {
+    return getActiveThemeColors().surface3;
+  },
+  get accent() {
+    return getActiveThemeColors().accent;
+  },
+  get success() {
+    return getActiveThemeColors().success;
+  },
+  get warning() {
+    return getActiveThemeColors().warning;
+  },
+  get danger() {
+    return getActiveThemeColors().danger;
+  },
+  get textPrimary() {
+    return getActiveThemeColors().textPrimary;
+  },
+  get textSecondary() {
+    return getActiveThemeColors().textSecondary;
+  },
+  get border() {
+    return getActiveThemeColors().border;
+  },
+  get radiusCard() {
+    return radii.lg;
+  },
+  get radiusInput() {
+    return radii.md;
+  },
+  get radiusPill() {
+    return radii.pill;
+  },
+  spacing,
+  radii,
 } as const;
+
+export { useTheme } from "../../context/ThemeContext";

@@ -1,98 +1,124 @@
-import type { ReactNode } from "react";
+import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { Card } from "./Card";
-import { uiTheme } from "./theme";
+import { useTheme } from "../../context/ThemeContext";
+import { radii, spacing } from "../../utils/designTokens";
+import { typography } from "../../utils/typography";
+
+export type StatChangeTrend = "up" | "down" | "neutral";
 
 interface StatCardProps {
-  icon?: ReactNode;
+  icon: string;
   label: string;
-  value: string | number;
-  unit?: string;
-  color?: string;
-  progress?: number;
+  value: string;
+  valueSuffix?: string;
+  change?: {
+    value: string;
+    trend: StatChangeTrend;
+  };
 }
 
 export function StatCard({
   icon,
   label,
   value,
-  unit,
-  color = uiTheme.accent,
-  progress,
+  valueSuffix,
+  change,
 }: StatCardProps) {
-  const showProgress = typeof progress === "number";
-  const normalizedProgress = showProgress
-    ? Math.max(0, Math.min(1, progress))
-    : 0;
+  const { theme } = useTheme();
+  const { colors } = theme;
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: colors.surface2,
+          borderRadius: radii.lg,
+          padding: spacing.base,
+        },
+        topRow: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+        },
+        icon: {
+          fontSize: 20,
+        },
+        changeBadge: {
+          borderRadius: radii.pill,
+          paddingVertical: 2,
+          paddingHorizontal: 8,
+        },
+        changeUp: {
+          backgroundColor: "rgba(52,211,153,0.15)",
+        },
+        changeDown: {
+          backgroundColor: "rgba(248,113,113,0.15)",
+        },
+        changeNeutral: {
+          backgroundColor: "rgba(255,255,255,0.08)",
+        },
+        changeTextUp: { color: colors.success, fontSize: 11, fontWeight: "700" },
+        changeTextDown: { color: colors.danger, fontSize: 11, fontWeight: "700" },
+        changeTextNeutral: {
+          color: colors.textSecondary,
+          fontSize: 11,
+          fontWeight: "700",
+        },
+        valueRow: {
+          flexDirection: "row",
+          alignItems: "baseline",
+          marginTop: spacing.sm,
+        },
+        value: {
+          ...typography.monoLarge,
+          color: colors.textPrimary,
+        },
+        suffix: {
+          fontSize: 16,
+          fontWeight: "600",
+          color: colors.textSecondary,
+          marginLeft: 2,
+        },
+        label: {
+          ...typography.caption,
+          color: colors.textSecondary,
+          marginTop: spacing.xs,
+        },
+      }),
+    [colors]
+  );
+
+  const changeStyle =
+    change?.trend === "up"
+      ? styles.changeUp
+      : change?.trend === "down"
+        ? styles.changeDown
+        : styles.changeNeutral;
+
+  const changeTextStyle =
+    change?.trend === "up"
+      ? styles.changeTextUp
+      : change?.trend === "down"
+        ? styles.changeTextDown
+        : styles.changeTextNeutral;
 
   return (
-    <Card variant="bordered" style={styles.container}>
-      <View style={styles.headRow}>
-        <Text style={styles.label}>{label}</Text>
-        {icon ? <View style={styles.iconWrap}>{icon}</View> : null}
+    <View style={styles.container}>
+      <View style={styles.topRow}>
+        <Text style={styles.icon}>{icon}</Text>
+        {change ? (
+          <View style={[styles.changeBadge, changeStyle]}>
+            <Text style={changeTextStyle}>{change.value}</Text>
+          </View>
+        ) : null}
       </View>
       <View style={styles.valueRow}>
         <Text style={styles.value}>{value}</Text>
-        {unit ? <Text style={styles.unit}>{unit}</Text> : null}
+        {valueSuffix ? <Text style={styles.suffix}>{valueSuffix}</Text> : null}
       </View>
-      {showProgress ? (
-        <View style={styles.progressTrack}>
-          <View
-            style={[
-              styles.progressFill,
-              { width: `${normalizedProgress * 100}%`, backgroundColor: color },
-            ]}
-          />
-        </View>
-      ) : null}
-    </Card>
+      <Text style={styles.label}>{label.toUpperCase()}</Text>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    minHeight: 120,
-    justifyContent: "space-between",
-  },
-  headRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  iconWrap: {
-    marginLeft: 8,
-  },
-  label: {
-    color: uiTheme.textSecondary,
-    fontSize: 13,
-  },
-  valueRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    marginTop: 8,
-  },
-  value: {
-    color: uiTheme.textPrimary,
-    fontSize: 24,
-    fontWeight: "700",
-    fontVariant: ["tabular-nums"],
-  },
-  unit: {
-    color: uiTheme.textSecondary,
-    marginLeft: 6,
-    fontSize: 14,
-  },
-  progressTrack: {
-    height: 8,
-    borderRadius: uiTheme.radiusPill,
-    backgroundColor: uiTheme.surface3,
-    overflow: "hidden",
-    marginTop: 14,
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: uiTheme.radiusPill,
-  },
-});

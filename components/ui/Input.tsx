@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useMemo, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -7,9 +8,19 @@ import {
   View,
 } from "react-native";
 
-import { uiTheme } from "./theme";
+import { useTheme } from "../../context/ThemeContext";
+import { radii } from "../../utils/designTokens";
+import { typography } from "../../utils/typography";
 
-interface InputProps extends Pick<TextInputProps, "keyboardType" | "secureTextEntry" | "returnKeyType" | "onSubmitEditing" | "autoFocus" | "maxFontSizeMultiplier"> {
+interface InputProps extends Pick<
+  TextInputProps,
+  | "keyboardType"
+  | "secureTextEntry"
+  | "returnKeyType"
+  | "onSubmitEditing"
+  | "autoFocus"
+  | "maxFontSizeMultiplier"
+> {
   value: string;
   onChangeText: (text: string) => void;
   placeholder: string;
@@ -32,21 +43,64 @@ export function Input({
   maxFontSizeMultiplier = 1.4,
   rightElement,
 }: InputProps) {
+  const { theme } = useTheme();
+  const { colors } = theme;
+  const [focused, setFocused] = useState(false);
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        wrap: { width: "100%" },
+        label: {
+          ...typography.caption,
+          color: colors.textSecondary,
+          marginBottom: 6,
+        },
+        inputRow: {
+          borderRadius: radii.md,
+          borderWidth: 1,
+          borderColor: focused ? colors.accent : colors.border,
+          backgroundColor: colors.surface2,
+          paddingHorizontal: 16,
+          flexDirection: "row",
+          alignItems: "center",
+        },
+        inputError: {
+          borderColor: colors.danger,
+        },
+        input: {
+          flex: 1,
+          color: colors.textPrimary,
+          fontSize: 15,
+          paddingVertical: 14,
+        },
+        right: { marginLeft: 8 },
+        error: {
+          marginTop: 6,
+          color: colors.danger,
+          fontSize: 12,
+        },
+      }),
+    [colors, focused]
+  );
+
   return (
     <View style={styles.wrap}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+      {label ? <Text style={styles.label}>{label.toUpperCase()}</Text> : null}
       <View style={[styles.inputRow, error ? styles.inputError : null]}>
         <TextInput
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={uiTheme.textSecondary}
+          placeholderTextColor={colors.textSecondary}
           keyboardType={keyboardType}
           secureTextEntry={secureTextEntry}
           returnKeyType={returnKeyType}
           onSubmitEditing={onSubmitEditing}
           autoFocus={autoFocus}
           maxFontSizeMultiplier={maxFontSizeMultiplier}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           style={styles.input}
         />
         {rightElement ? <View style={styles.right}>{rightElement}</View> : null}
@@ -55,42 +109,3 @@ export function Input({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: {
-    width: "100%",
-  },
-  label: {
-    color: uiTheme.textSecondary,
-    marginBottom: 6,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  inputRow: {
-    minHeight: 44,
-    borderRadius: uiTheme.radiusInput,
-    borderWidth: 1,
-    borderColor: uiTheme.border,
-    backgroundColor: uiTheme.surface2,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  input: {
-    flex: 1,
-    color: uiTheme.textPrimary,
-    fontSize: 15,
-    paddingVertical: 10,
-  },
-  right: {
-    marginLeft: 8,
-  },
-  error: {
-    marginTop: 6,
-    color: uiTheme.danger,
-    fontSize: 12,
-  },
-  inputError: {
-    borderColor: uiTheme.danger,
-  },
-});

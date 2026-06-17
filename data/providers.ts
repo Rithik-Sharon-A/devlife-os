@@ -7,6 +7,8 @@ export interface ProviderModel {
   displayName: string;
   contextWindow: number;
   isFree: boolean;
+  /** Human-readable context label, e.g. "8K context". Derived when omitted. */
+  contextSubtitle?: string;
 }
 
 export interface BuiltRequest {
@@ -69,32 +71,184 @@ const openRouterConfig: ProviderConfig = {
     {
       id: "meta-llama/llama-3.1-8b-instruct:free",
       displayName: "Llama 3.1 8B (Free)",
-      contextWindow: 131072,
+      contextWindow: 8192,
       isFree: true,
+      contextSubtitle: "8K context",
+    },
+    {
+      id: "meta-llama/llama-3.2-3b-instruct:free",
+      displayName: "Llama 3.2 3B (Free)",
+      contextWindow: 8192,
+      isFree: true,
+      contextSubtitle: "8K context",
+    },
+    {
+      id: "meta-llama/llama-3.2-1b-instruct:free",
+      displayName: "Llama 3.2 1B (Free)",
+      contextWindow: 8192,
+      isFree: true,
+      contextSubtitle: "8K context",
     },
     {
       id: "google/gemma-2-9b-it:free",
       displayName: "Gemma 2 9B (Free)",
       contextWindow: 8192,
       isFree: true,
+      contextSubtitle: "8K context",
+    },
+    {
+      id: "google/gemma-3-4b-it:free",
+      displayName: "Gemma 3 4B (Free)",
+      contextWindow: 8192,
+      isFree: true,
+      contextSubtitle: "8K context",
     },
     {
       id: "mistralai/mistral-7b-instruct:free",
       displayName: "Mistral 7B (Free)",
       contextWindow: 32768,
       isFree: true,
+      contextSubtitle: "8K context",
+    },
+    {
+      id: "mistralai/mistral-nemo:free",
+      displayName: "Mistral Nemo (Free)",
+      contextWindow: 32768,
+      isFree: true,
+      contextSubtitle: "32K context",
+    },
+    {
+      id: "qwen/qwen-2.5-7b-instruct:free",
+      displayName: "Qwen 2.5 7B (Free)",
+      contextWindow: 32768,
+      isFree: true,
+      contextSubtitle: "8K context",
+    },
+    {
+      id: "deepseek/deepseek-r1:free",
+      displayName: "DeepSeek R1 (Free)",
+      contextWindow: 8192,
+      isFree: true,
+      contextSubtitle: "8K context",
+    },
+    {
+      id: "deepseek/deepseek-chat:free",
+      displayName: "DeepSeek Chat (Free)",
+      contextWindow: 8192,
+      isFree: true,
+      contextSubtitle: "8K context",
+    },
+    {
+      id: "microsoft/phi-3-mini-128k-instruct:free",
+      displayName: "Phi-3 Mini (Free)",
+      contextWindow: 128000,
+      isFree: true,
+      contextSubtitle: "128K context",
+    },
+    {
+      id: "openchat/openchat-7b:free",
+      displayName: "OpenChat 7B (Free)",
+      contextWindow: 8192,
+      isFree: true,
+      contextSubtitle: "8K context",
     },
     {
       id: "anthropic/claude-3.5-haiku",
       displayName: "Claude 3.5 Haiku",
       contextWindow: 200000,
       isFree: false,
+      contextSubtitle: "200K context",
+    },
+    {
+      id: "anthropic/claude-3.5-sonnet",
+      displayName: "Claude 3.5 Sonnet",
+      contextWindow: 200000,
+      isFree: false,
+      contextSubtitle: "200K context",
+    },
+    {
+      id: "anthropic/claude-3-opus",
+      displayName: "Claude 3 Opus",
+      contextWindow: 200000,
+      isFree: false,
+      contextSubtitle: "200K context",
     },
     {
       id: "openai/gpt-4o-mini",
       displayName: "GPT-4o Mini",
       contextWindow: 128000,
       isFree: false,
+      contextSubtitle: "128K context",
+    },
+    {
+      id: "openai/gpt-4o",
+      displayName: "GPT-4o",
+      contextWindow: 128000,
+      isFree: false,
+      contextSubtitle: "128K context",
+    },
+    {
+      id: "openai/gpt-4-turbo",
+      displayName: "GPT-4 Turbo",
+      contextWindow: 128000,
+      isFree: false,
+      contextSubtitle: "128K context",
+    },
+    {
+      id: "google/gemini-flash-1.5",
+      displayName: "Gemini 1.5 Flash",
+      contextWindow: 1000000,
+      isFree: false,
+      contextSubtitle: "1M context",
+    },
+    {
+      id: "google/gemini-pro-1.5",
+      displayName: "Gemini 1.5 Pro",
+      contextWindow: 2000000,
+      isFree: false,
+      contextSubtitle: "2M context",
+    },
+    {
+      id: "meta-llama/llama-3.1-70b-instruct",
+      displayName: "Llama 3.1 70B",
+      contextWindow: 32768,
+      isFree: false,
+      contextSubtitle: "32K context",
+    },
+    {
+      id: "meta-llama/llama-3.1-405b-instruct",
+      displayName: "Llama 3.1 405B",
+      contextWindow: 32768,
+      isFree: false,
+      contextSubtitle: "32K context",
+    },
+    {
+      id: "mistralai/mixtral-8x7b-instruct",
+      displayName: "Mixtral 8x7B",
+      contextWindow: 32768,
+      isFree: false,
+      contextSubtitle: "32K context",
+    },
+    {
+      id: "mistralai/mistral-large",
+      displayName: "Mistral Large",
+      contextWindow: 128000,
+      isFree: false,
+      contextSubtitle: "128K context",
+    },
+    {
+      id: "cohere/command-r-plus",
+      displayName: "Command R+",
+      contextWindow: 128000,
+      isFree: false,
+      contextSubtitle: "128K context",
+    },
+    {
+      id: "perplexity/llama-3.1-sonar-large-128k-online",
+      displayName: "Perplexity Sonar Large",
+      contextWindow: 128000,
+      isFree: false,
+      contextSubtitle: "128K context",
     },
   ],
   headerBuilder: (apiKey) => ({
@@ -124,27 +278,94 @@ const groqConfig: ProviderConfig = {
   models: [
     {
       id: "llama-3.1-8b-instant",
-      displayName: "Llama 3.1 8B Instant",
-      contextWindow: 131072,
+      displayName: "Llama 3.1 8B Instant (Free)",
+      contextWindow: 8192,
       isFree: true,
+      contextSubtitle: "8K context",
     },
     {
       id: "llama-3.3-70b-versatile",
-      displayName: "Llama 3.3 70B Versatile",
-      contextWindow: 131072,
+      displayName: "Llama 3.3 70B Versatile (Free)",
+      contextWindow: 32768,
       isFree: true,
+      contextSubtitle: "32K context",
+    },
+    {
+      id: "llama-3.1-70b-versatile",
+      displayName: "Llama 3.1 70B (Free)",
+      contextWindow: 32768,
+      isFree: true,
+      contextSubtitle: "32K context",
+    },
+    {
+      id: "llama3-8b-8192",
+      displayName: "Llama 3 8B (Free)",
+      contextWindow: 8192,
+      isFree: true,
+      contextSubtitle: "8K context",
+    },
+    {
+      id: "llama3-70b-8192",
+      displayName: "Llama 3 70B (Free)",
+      contextWindow: 32768,
+      isFree: true,
+      contextSubtitle: "32K context",
     },
     {
       id: "mixtral-8x7b-32768",
-      displayName: "Mixtral 8x7B",
+      displayName: "Mixtral 8x7B (Free)",
       contextWindow: 32768,
       isFree: true,
+      contextSubtitle: "32K context",
     },
     {
       id: "gemma2-9b-it",
-      displayName: "Gemma2 9B",
+      displayName: "Gemma 2 9B (Free)",
       contextWindow: 8192,
       isFree: true,
+      contextSubtitle: "8K context",
+    },
+    {
+      id: "gemma-7b-it",
+      displayName: "Gemma 7B (Free)",
+      contextWindow: 8192,
+      isFree: true,
+      contextSubtitle: "8K context",
+    },
+    {
+      id: "llama-3.2-1b-preview",
+      displayName: "Llama 3.2 1B (Free)",
+      contextWindow: 8192,
+      isFree: true,
+      contextSubtitle: "8K context",
+    },
+    {
+      id: "llama-3.2-3b-preview",
+      displayName: "Llama 3.2 3B (Free)",
+      contextWindow: 8192,
+      isFree: true,
+      contextSubtitle: "8K context",
+    },
+    {
+      id: "llama-3.2-11b-vision-preview",
+      displayName: "Llama 3.2 11B Vision (Free)",
+      contextWindow: 8192,
+      isFree: true,
+      contextSubtitle: "8K context",
+    },
+    {
+      id: "llama-3.2-90b-vision-preview",
+      displayName: "Llama 3.2 90B Vision (Free)",
+      contextWindow: 32768,
+      isFree: true,
+      contextSubtitle: "32K context",
+    },
+    {
+      id: "deepseek-r1-distill-llama-70b",
+      displayName: "DeepSeek R1 Distill 70B (Free)",
+      contextWindow: 32768,
+      isFree: true,
+      contextSubtitle: "32K context",
     },
   ],
   headerBuilder: (apiKey) => ({
@@ -175,18 +396,42 @@ const openAIConfig: ProviderConfig = {
       displayName: "GPT-4o Mini",
       contextWindow: 128000,
       isFree: false,
+      contextSubtitle: "128K context",
     },
     {
       id: "gpt-4o",
       displayName: "GPT-4o",
       contextWindow: 128000,
       isFree: false,
+      contextSubtitle: "128K context",
+    },
+    {
+      id: "gpt-4-turbo",
+      displayName: "GPT-4 Turbo",
+      contextWindow: 128000,
+      isFree: false,
+      contextSubtitle: "128K context",
     },
     {
       id: "gpt-3.5-turbo",
       displayName: "GPT-3.5 Turbo",
       contextWindow: 16385,
       isFree: false,
+      contextSubtitle: "16K context",
+    },
+    {
+      id: "o1-mini",
+      displayName: "o1 Mini",
+      contextWindow: 128000,
+      isFree: false,
+      contextSubtitle: "128K context",
+    },
+    {
+      id: "o1-preview",
+      displayName: "o1 Preview",
+      contextWindow: 128000,
+      isFree: false,
+      contextSubtitle: "128K context",
     },
   ],
   headerBuilder: (apiKey) => ({
@@ -217,12 +462,35 @@ const anthropicConfig: ProviderConfig = {
       displayName: "Claude Haiku 4.5",
       contextWindow: 200000,
       isFree: false,
+      contextSubtitle: "200K context",
     },
     {
       id: "claude-sonnet-4-6",
       displayName: "Claude Sonnet 4.6",
       contextWindow: 200000,
       isFree: false,
+      contextSubtitle: "200K context",
+    },
+    {
+      id: "claude-3-5-haiku-20241022",
+      displayName: "Claude 3.5 Haiku",
+      contextWindow: 200000,
+      isFree: false,
+      contextSubtitle: "200K context",
+    },
+    {
+      id: "claude-3-5-sonnet-20241022",
+      displayName: "Claude 3.5 Sonnet",
+      contextWindow: 200000,
+      isFree: false,
+      contextSubtitle: "200K context",
+    },
+    {
+      id: "claude-3-opus-20240229",
+      displayName: "Claude 3 Opus",
+      contextWindow: 200000,
+      isFree: false,
+      contextSubtitle: "200K context",
     },
   ],
   headerBuilder: (apiKey) => ({
@@ -266,21 +534,31 @@ const geminiConfig: ProviderConfig = {
   models: [
     {
       id: "gemini-1.5-flash",
-      displayName: "Gemini 1.5 Flash",
+      displayName: "Gemini 1.5 Flash (Free tier)",
       contextWindow: 1000000,
       isFree: true,
+      contextSubtitle: "1M context",
     },
     {
       id: "gemini-1.5-pro",
       displayName: "Gemini 1.5 Pro",
       contextWindow: 2000000,
       isFree: false,
+      contextSubtitle: "2M context",
     },
     {
-      id: "gemini-2.0-flash",
+      id: "gemini-2.0-flash-exp",
       displayName: "Gemini 2.0 Flash",
       contextWindow: 1000000,
       isFree: true,
+      contextSubtitle: "1M context",
+    },
+    {
+      id: "gemini-1.0-pro",
+      displayName: "Gemini 1.0 Pro",
+      contextWindow: 32768,
+      isFree: false,
+      contextSubtitle: "32K context",
     },
   ],
   // API key goes in query param, not header — headerBuilder still sets Content-Type
@@ -449,4 +727,42 @@ export function getAccessibleProviders(): ProviderConfig[] {
   return Object.values(PROVIDERS).filter(
     (p) => !p.requiresKey || p.freeModelsAvailable
   );
+}
+
+/** Human-readable context size for model picker subtitles. */
+export function getModelContextSubtitle(model: ProviderModel): string {
+  if (model.contextSubtitle) return model.contextSubtitle;
+
+  const haystack = `${model.id} ${model.displayName}`.toLowerCase();
+  if (haystack.includes("haiku")) return "200K context";
+  if (haystack.includes("gpt-4o") || haystack.includes("o1-")) return "128K context";
+  if (haystack.includes("70b") || haystack.includes("90b") || haystack.includes("405b")) {
+    return "32K context";
+  }
+  if (
+    haystack.includes("8b") ||
+    haystack.includes("7b") ||
+    haystack.includes("3b") ||
+    haystack.includes("1b") ||
+    haystack.includes("4b") ||
+    haystack.includes("9b") ||
+    haystack.includes("11b")
+  ) {
+    return "8K context";
+  }
+
+  if (model.contextWindow >= 1_000_000) {
+    return `${Math.round(model.contextWindow / 1_000_000)}M context`;
+  }
+  if (model.contextWindow >= 1000) {
+    return `${Math.round(model.contextWindow / 1000)}K context`;
+  }
+  return `${model.contextWindow} context`;
+}
+
+export function findProviderModel(
+  providerId: AIProvider,
+  modelId: string
+): ProviderModel | undefined {
+  return PROVIDERS[providerId].models.find((m) => m.id === modelId);
 }

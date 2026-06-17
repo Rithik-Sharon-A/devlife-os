@@ -2,7 +2,7 @@ import "react-native-gesture-handler";
 
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -10,8 +10,11 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppBootstrap } from "../components/AppBootstrap";
 import { AppSplash } from "../components/AppSplash";
 import { ToastProvider } from "../components/providers/ToastProvider";
+import { ThemeProvider, useTheme } from "../context/ThemeContext";
 import { useDayRollover } from "../hooks/useDayRollover";
 import { useAppStore } from "../store/useAppStore";
+import { radii, spacing } from "../utils/designTokens";
+import { typography } from "../utils/typography";
 
 export const unstable_settings = {
   initialRouteName: "index",
@@ -23,19 +26,95 @@ function DayRolloverWatcher() {
 }
 
 function LoadingScreen() {
+  const { theme } = useTheme();
+  const { colors } = theme;
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        loading: {
+          flex: 1,
+          backgroundColor: colors.background,
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: spacing.lg,
+        },
+        row: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: spacing.base,
+        },
+        logoBox: {
+          width: 56,
+          height: 56,
+          borderRadius: radii.md,
+          backgroundColor: colors.surface1,
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        logoIcon: {
+          fontSize: 28,
+          fontWeight: "700",
+          color: colors.accent,
+        },
+        titleRow: {
+          flexDirection: "row",
+        },
+        day: {
+          ...typography.display,
+          fontSize: 32,
+          color: colors.textPrimary,
+        },
+        os: {
+          ...typography.display,
+          fontSize: 32,
+          color: colors.accent,
+        },
+        tagline: {
+          ...typography.body,
+          color: colors.textSecondary,
+          marginTop: spacing.xs,
+          maxWidth: 280,
+          textAlign: "left",
+        },
+        spinner: {
+          marginTop: spacing.xl,
+        },
+      }),
+    [colors]
+  );
+
   return (
     <View style={styles.loading}>
-      <Text style={styles.loadingTitle}>DayOS</Text>
-      <Text style={styles.loadingSubtitle}>Loading your day...</Text>
-      <ActivityIndicator size="large" color="#7c6aff" style={styles.spinner} />
+      <View style={styles.row}>
+        <View style={styles.logoBox}>
+          <Text style={styles.logoIcon}>▲</Text>
+        </View>
+        <View>
+          <View style={styles.titleRow}>
+            <Text style={styles.day}>Day</Text>
+            <Text style={styles.os}>OS</Text>
+          </View>
+          <Text style={styles.tagline}>
+            Your private operating system for the day.
+          </Text>
+        </View>
+      </View>
+      <ActivityIndicator
+        size="large"
+        color={colors.accent}
+        style={styles.spinner}
+      />
     </View>
   );
 }
 
-export default function RootLayout() {
+function RootShell() {
   const initializeStore = useAppStore((state) => state.initializeStore);
   const isStoreInitialized = useAppStore((state) => state.isStoreInitialized);
   const isLoading = useAppStore((state) => state.isLoading);
+  const { theme } = useTheme();
+  const { colors } = theme;
 
   const [splashMounted, setSplashMounted] = useState(true);
 
@@ -43,65 +122,57 @@ export default function RootLayout() {
     void initializeStore();
   }, [initializeStore]);
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        root: {
+          flex: 1,
+          backgroundColor: colors.background,
+        },
+      }),
+    [colors.background]
+  );
+
   if (isLoading && !isStoreInitialized) {
     return <LoadingScreen />;
   }
 
   return (
     <GestureHandlerRootView style={styles.root}>
-    <SafeAreaProvider>
-      <ToastProvider>
-        <View style={styles.root}>
-          <StatusBar style="light" />
-          <AppBootstrap />
-          <DayRolloverWatcher />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: "#0d0f12" },
-              animation: "fade",
-            }}
-          >
-            <Stack.Screen name="index" />
-            <Stack.Screen name="onboarding" />
-            <Stack.Screen name="(tabs)" />
-          </Stack>
-          {splashMounted ? (
-            <AppSplash
-              visible={!isStoreInitialized}
-              onHidden={() => setSplashMounted(false)}
-            />
-          ) : null}
-        </View>
-      </ToastProvider>
-    </SafeAreaProvider>
+      <View style={styles.root}>
+        <StatusBar style={theme.isLight ? "dark" : "light"} />
+        <AppBootstrap />
+        <DayRolloverWatcher />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.background },
+            animation: "fade",
+          }}
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen name="onboarding" />
+          <Stack.Screen name="(tabs)" />
+        </Stack>
+        {splashMounted ? (
+          <AppSplash
+            visible={!isStoreInitialized}
+            onHidden={() => setSplashMounted(false)}
+          />
+        ) : null}
+      </View>
     </GestureHandlerRootView>
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: "#0d0f12",
-  },
-  loading: {
-    flex: 1,
-    backgroundColor: "#0d0f12",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  loadingTitle: {
-    fontSize: 40,
-    fontWeight: "700",
-    color: "#ffffff",
-    letterSpacing: 2,
-  },
-  loadingSubtitle: {
-    fontSize: 16,
-    color: "#64748b",
-    marginTop: 8,
-  },
-  spinner: {
-    marginTop: 32,
-  },
-});
+export default function RootLayout() {
+  return (
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <ToastProvider>
+          <RootShell />
+        </ToastProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
+  );
+}

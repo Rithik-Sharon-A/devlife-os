@@ -274,6 +274,16 @@ export interface AIChatSession {
 export type WeightUnit = "kg" | "lbs";
 export type HeightUnit = "cm" | "ft";
 
+export type AppThemeId =
+  | "midnight"
+  | "aurora"
+  | "ember"
+  | "sakura"
+  | "ocean"
+  | "forest"
+  | "neonTokyo"
+  | "parchment";
+
 export interface AppPreferences {
   weightUnit: WeightUnit;
   heightUnit: HeightUnit;
@@ -283,6 +293,7 @@ export interface AppPreferences {
   stepGoal: number;
   lastActiveDate: string;
   hasSeenMorningBriefing: boolean;
+  theme: AppThemeId;
 }
 
 // ─── Notifications ───────────────────────────────────────────────────────────

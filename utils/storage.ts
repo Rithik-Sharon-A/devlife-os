@@ -81,6 +81,7 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   stepGoal: 8000,
   lastActiveDate: "",
   hasSeenMorningBriefing: false,
+  theme: "midnight",
 };
 
 export const DEFAULT_WATER_CONFIG: WaterConfig = {
