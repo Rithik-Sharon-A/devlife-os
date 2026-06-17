@@ -31,11 +31,20 @@ export interface WaterConfig {
   dailyGoalBottles: number;
 }
 
+export interface WaterLogEntry {
+  id: string;
+  timestamp: string;
+  ml: number;
+  /** Fraction of a standard bottle (e.g. 1, 0.5). */
+  bottles: number;
+}
+
 export interface WaterLog {
   id: string;
   timestamp: string;
   bottleCount: number;
   totalMl: number;
+  entries: WaterLogEntry[];
 }
 
 // ─── Food ────────────────────────────────────────────────────────────────────
@@ -116,6 +125,7 @@ export interface FocusConfig {
   workMinutes: number;
   breakMinutes: number;
   sessionsBeforeLongBreak: number;
+  longBreakMinutes: number;
 }
 
 // ─── Habits ──────────────────────────────────────────────────────────────────
@@ -257,6 +267,22 @@ export interface AIChatSession {
   id: string;
   messages: AIMessage[];
   createdAt: string;
+}
+
+// ─── App Preferences ─────────────────────────────────────────────────────────
+
+export type WeightUnit = "kg" | "lbs";
+export type HeightUnit = "cm" | "ft";
+
+export interface AppPreferences {
+  weightUnit: WeightUnit;
+  heightUnit: HeightUnit;
+  showStepsOnDashboard: boolean;
+  manualCalorieOverride: boolean;
+  manualCalorieGoal: number;
+  stepGoal: number;
+  lastActiveDate: string;
+  hasSeenMorningBriefing: boolean;
 }
 
 // ─── Notifications ───────────────────────────────────────────────────────────

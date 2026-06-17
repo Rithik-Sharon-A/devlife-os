@@ -5,21 +5,21 @@
     "version": "1.0.0",
     "scheme": "dayos",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0d0f12",
     "splash": {
-      "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#0d0f12"
     },
+    "assetBundlePatterns": ["**/*"],
     "plugins": [
       "expo-router",
+      "expo-font",
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
-          "color": "#0d0f12"
+          "color": "#7c6aff",
+          "sounds": []
         }
       ],
       [
@@ -36,21 +36,21 @@
       ]
     ],
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
+      "bundleIdentifier": "com.dayos.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "Allow DayOS to access your camera for food logging.",
-        "NSMotionUsageDescription": "Allow DayOS to access motion data for step counting.",
-        "NSHealthShareUsageDescription": "Allow DayOS to read step count data.",
-        "NSHealthUpdateUsageDescription": "Allow DayOS to update health data.",
+        "NSCameraUsageDescription": "DayOS uses the camera to photograph meals for food logging.",
+        "NSPhotoLibraryUsageDescription": "DayOS can read photos to identify meals.",
+        "NSMotionUsageDescription": "DayOS reads motion data to count your daily steps.",
+        "NSHealthShareUsageDescription": "DayOS reads step count data from Apple Health.",
+        "NSHealthUpdateUsageDescription": "DayOS can write step and activity data to Apple Health.",
         "UIBackgroundModes": ["remote-notification"]
       }
     },
     "android": {
+      "package": "com.dayos.app",
       "adaptiveIcon": {
-        "backgroundColor": "#0d0f12",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#0d0f12"
       },
       "permissions": [
         "android.permission.CAMERA",
@@ -58,12 +58,14 @@
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
         "android.permission.POST_NOTIFICATIONS",
-        "android.permission.health.READ_STEPS"
+        "android.permission.health.READ_STEPS",
+        "android.permission.INTERNET"
       ]
     },
     "web": {
       "bundler": "metro",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "output": "static"
     },
     "experiments": {
       "typedRoutes": true

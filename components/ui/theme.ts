@@ -1,0 +1,16 @@
+export const uiTheme = {
+  background: "#0d0f12",
+  surface1: "#161a20",
+  surface2: "#1e232b",
+  surface3: "#252b35",
+  accent: "#7c6aff",
+  success: "#34d399",
+  warning: "#fbbf24",
+  danger: "#f87171",
+  textPrimary: "#e2e8f0",
+  textSecondary: "#64748b",
+  border: "#2a3140",
+  radiusCard: 12,
+  radiusInput: 8,
+  radiusPill: 999,
+} as const;
