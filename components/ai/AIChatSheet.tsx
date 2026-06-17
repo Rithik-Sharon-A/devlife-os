@@ -40,7 +40,9 @@ function id() {
 
 function TypingIndicator() {
   const pulse = useSharedValue(0.4);
-  pulse.value = withRepeat(withTiming(1, { duration: 500 }), -1, true);
+  useEffect(() => {
+    pulse.value = withRepeat(withTiming(1, { duration: 500 }), -1, true);
+  }, [pulse]);
   const style = useAnimatedStyle(() => ({ opacity: pulse.value }));
   return (
     <View style={styles.typingWrap}>

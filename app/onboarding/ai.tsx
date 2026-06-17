@@ -12,9 +12,9 @@ import { uiTheme } from "../../components/ui/theme";
 import { getProvider, PROVIDERS } from "../../data/providers";
 import type { AIProvider } from "../../types";
 import { useOnboardingStore } from "../../store/useOnboardingStore";
-import { OnboardingShell } from "./components/OnboardingShell";
+import { OnboardingShell } from "../../components/onboarding/OnboardingShell";
 import { useOnboardingStep } from "./_layout";
-import { testAIConnection } from "./utils/testAIConnection";
+import { testAIConnection } from "../../utils/onboarding/testAIConnection";
 
 const PROVIDER_ORDER: AIProvider[] = [
   "groq",

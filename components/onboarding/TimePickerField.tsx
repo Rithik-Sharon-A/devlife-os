@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { uiTheme } from "../../../components/ui/theme";
+import { uiTheme } from "../ui/theme";
 
 interface TimePickerFieldProps {
   label: string;

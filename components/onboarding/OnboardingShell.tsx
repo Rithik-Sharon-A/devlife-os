@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { uiTheme } from "../../../components/ui/theme";
+import { uiTheme } from "../ui/theme";
 
 interface OnboardingShellProps extends PropsWithChildren {
   step: number;

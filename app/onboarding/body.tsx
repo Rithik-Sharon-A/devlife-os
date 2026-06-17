@@ -8,7 +8,7 @@ import { Input } from "../../components/ui/Input";
 import { uiTheme } from "../../components/ui/theme";
 import type { GoalType } from "../../types";
 import { useOnboardingStore } from "../../store/useOnboardingStore";
-import { OnboardingShell } from "./components/OnboardingShell";
+import { OnboardingShell } from "../../components/onboarding/OnboardingShell";
 import { useOnboardingStep } from "./_layout";
 
 type HeightUnit = "cm" | "ft";

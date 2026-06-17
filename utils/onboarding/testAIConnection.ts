@@ -1,5 +1,5 @@
-import type { AIProvider, AIMessage } from "../../../types";
-import { buildRequest, getProvider, parseResponse } from "../../../data/providers";
+import type { AIProvider, AIMessage } from "../../types";
+import { buildRequest, getProvider, parseResponse } from "../../data/providers";
 
 const TEST_TIMEOUT_MS = 30_000;
 

@@ -62,10 +62,14 @@ function isWaterGoalMet(): boolean {
 }
 
 export async function requestNotificationPermission(): Promise<boolean> {
-  const existing = await Notifications.getPermissionsAsync();
-  if (existing.granted) return true;
-  const result = await Notifications.requestPermissionsAsync();
-  return result.granted;
+  try {
+    const existing = await Notifications.getPermissionsAsync();
+    if (existing.granted) return true;
+    const result = await Notifications.requestPermissionsAsync();
+    return result.granted;
+  } catch {
+    return false;
+  }
 }
 
 
@@ -191,33 +195,37 @@ async function scheduleFocusReminder(time: string): Promise<void> {
 export async function scheduleNotificationsFromConfig(
   config: NotificationConfig
 ): Promise<void> {
-  if (config.waterReminder.enabled && !isWaterGoalMet()) {
-    await scheduleWaterReminder(config.waterReminder.times);
-  } else {
-    await cancelCategory("water");
-  }
+  try {
+    if (config.waterReminder.enabled && !isWaterGoalMet()) {
+      await scheduleWaterReminder(config.waterReminder.times);
+    } else {
+      await cancelCategory("water");
+    }
 
-  if (config.mealReminder.enabled) {
-    await scheduleMealReminders(config.mealReminder);
-  } else {
-    await cancelCategory("meal");
-  }
+    if (config.mealReminder.enabled) {
+      await scheduleMealReminders(config.mealReminder);
+    } else {
+      await cancelCategory("meal");
+    }
 
-  if (config.eveningCheckin.enabled) {
-    await scheduleEveningCheckin(config.eveningCheckin.time);
-  } else {
-    await cancelCategory("evening");
-  }
+    if (config.eveningCheckin.enabled) {
+      await scheduleEveningCheckin(config.eveningCheckin.time);
+    } else {
+      await cancelCategory("evening");
+    }
 
-  if (config.morningBriefing.enabled) {
-    await scheduleMorningBriefing(config.morningBriefing.time);
-  } else {
-    await cancelCategory("morning");
-  }
+    if (config.morningBriefing.enabled) {
+      await scheduleMorningBriefing(config.morningBriefing.time);
+    } else {
+      await cancelCategory("morning");
+    }
 
-  if (config.focusReminder.enabled) {
-    await scheduleFocusReminder(config.focusReminder.time);
-  } else {
-    await cancelCategory("focus");
+    if (config.focusReminder.enabled) {
+      await scheduleFocusReminder(config.focusReminder.time);
+    } else {
+      await cancelCategory("focus");
+    }
+  } catch {
+    // Notification scheduling failed silently — local notifications may not be available
   }
 }

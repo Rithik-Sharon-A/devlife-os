@@ -1,98 +1,15 @@
-import {
-  getPermissionsAsync,
-  getTodayStepCountAsync,
-  isAvailableAsync,
-  PermissionStatus,
-  requestPermissionsAsync,
-} from "expo-pedometer";
-import { useCallback, useEffect, useState } from "react";
-import { AppState, type AppStateStatus } from "react-native";
+import { useState } from 'react';
 
-import { useAppStore } from "../store/useAppStore";
-
-const DEFAULT_GOAL = 10_000;
-
+// expo-pedometer is not available in Expo Go (SDK 54).
+// Will be enabled in a development build (Phase 19).
 export function usePedometer() {
-  const stepLog = useAppStore((state) => state.stepLog);
-  const updateSteps = useAppStore((state) => state.updateSteps);
+  const [steps] = useState(0);
+  const goalSteps = 8000;
+  const isAvailable = false;
+  const permissionGranted = false;
+  const percentage = 0;
 
-  const [isAvailable, setIsAvailable] = useState(false);
-  const [permissionGranted, setPermissionGranted] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-
-  const steps = stepLog?.steps ?? 0;
-  const goalSteps = stepLog?.goalSteps ?? DEFAULT_GOAL;
-  const percentage = goalSteps > 0 ? Math.min(100, (steps / goalSteps) * 100) : 0;
-
-  const ensurePermission = useCallback(async (): Promise<boolean> => {
-    try {
-      const available = await isAvailableAsync();
-      setIsAvailable(available);
-
-      if (!available) {
-        setPermissionGranted(false);
-        return false;
-      }
-
-      let permission = await getPermissionsAsync();
-
-      if (permission.status !== PermissionStatus.GRANTED) {
-        permission = await requestPermissionsAsync();
-      }
-
-      const granted = permission.status === PermissionStatus.GRANTED;
-      setPermissionGranted(granted);
-      return granted;
-    } catch {
-      setIsAvailable(false);
-      setPermissionGranted(false);
-      return false;
-    }
-  }, []);
-
-  const syncSteps = useCallback(async () => {
-    setIsSyncing(true);
-    try {
-      const granted = await ensurePermission();
-      if (!granted) return;
-
-      const todaySteps = await getTodayStepCountAsync();
-      updateSteps(Math.max(0, todaySteps));
-    } catch {
-      // step sync failed silently — keep last known value
-    } finally {
-      setIsSyncing(false);
-    }
-  }, [ensurePermission, updateSteps]);
-
-  useEffect(() => {
-    void ensurePermission();
-  }, [ensurePermission]);
-
-  useEffect(() => {
-    void syncSteps();
-
-    const handleAppStateChange = (state: AppStateStatus) => {
-      if (state === "active") {
-        void syncSteps();
-      }
-    };
-
-    const subscription = AppState.addEventListener(
-      "change",
-      handleAppStateChange
-    );
-    return () => subscription.remove();
-  }, [syncSteps]);
-
-  return {
-    steps,
-    goalSteps,
-    percentage,
-    isAvailable,
-    permissionGranted,
-    isSyncing,
-    syncSteps,
-    requestPermission: ensurePermission,
-  };
+  return { steps, goalSteps, percentage, isAvailable, permissionGranted };
 }
+
+export default usePedometer;

@@ -8,7 +8,7 @@ import { Input } from "../../components/ui/Input";
 import { uiTheme } from "../../components/ui/theme";
 import { calculateWaterGoal } from "../../utils/tdee";
 import { useOnboardingStore } from "../../store/useOnboardingStore";
-import { OnboardingShell } from "./components/OnboardingShell";
+import { OnboardingShell } from "../../components/onboarding/OnboardingShell";
 import { useOnboardingStep } from "./_layout";
 
 const BOTTLE_SIZES = [300, 500, 750, 1000, 1500];

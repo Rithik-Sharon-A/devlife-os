@@ -4,8 +4,8 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Button } from "../../components/ui/Button";
 import { uiTheme } from "../../components/ui/theme";
 import { useOnboardingStore } from "../../store/useOnboardingStore";
-import { OnboardingShell } from "./components/OnboardingShell";
-import { TimePickerField } from "./components/TimePickerField";
+import { OnboardingShell } from "../../components/onboarding/OnboardingShell";
+import { TimePickerField } from "../../components/onboarding/TimePickerField";
 import { useOnboardingStep } from "./_layout";
 
 export default function OnboardingSleep() {

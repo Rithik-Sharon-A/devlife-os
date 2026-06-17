@@ -7,7 +7,7 @@ import { Input } from "../../components/ui/Input";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { uiTheme } from "../../components/ui/theme";
 import { useOnboardingStore } from "../../store/useOnboardingStore";
-import { OnboardingShell } from "./components/OnboardingShell";
+import { OnboardingShell } from "../../components/onboarding/OnboardingShell";
 import { useOnboardingStep } from "./_layout";
 
 const genderOptions = ["Male", "Female", "Other"] as const;

@@ -8,13 +8,17 @@ import {
   scheduleNotificationsFromConfig,
 } from "../utils/notificationScheduler";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+} catch {
+  // Notifications not available in this environment
+}
 
 export function useNotifications() {
   const notificationConfig = useAppStore((state) => state.notificationConfig);
@@ -22,27 +26,42 @@ export function useNotifications() {
     (state) => state.setNotificationConfig
   );
 
-  const requestPermission = useCallback(
-    () => requestNotificationPermission(),
-    []
-  );
+  const requestPermission = useCallback(async (): Promise<boolean> => {
+    try {
+      return await requestNotificationPermission();
+    } catch {
+      return false;
+    }
+  }, []);
 
   const updateFromConfig = useCallback(
     async (config: NotificationConfig): Promise<void> => {
-      setNotificationConfigInStore(config);
-      void useAppStore.getState().persistAll?.();
-      await scheduleNotificationsFromConfig(config);
+      try {
+        setNotificationConfigInStore(config);
+        void useAppStore.getState().persistAll?.();
+        await scheduleNotificationsFromConfig(config);
+      } catch {
+        // Notification scheduling failed silently
+      }
     },
     [setNotificationConfigInStore]
   );
 
   const refreshWaterReminders = useCallback(async (): Promise<void> => {
-    const config = useAppStore.getState().notificationConfig;
-    await scheduleNotificationsFromConfig(config);
+    try {
+      const config = useAppStore.getState().notificationConfig;
+      await scheduleNotificationsFromConfig(config);
+    } catch {
+      // Refresh failed silently
+    }
   }, []);
 
   const cancelAll = useCallback(async (): Promise<void> => {
-    await Notifications.cancelAllScheduledNotificationsAsync();
+    try {
+      await Notifications.cancelAllScheduledNotificationsAsync();
+    } catch {
+      // Cancel failed silently
+    }
   }, []);
 
   return {

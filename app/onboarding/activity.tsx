@@ -7,7 +7,7 @@ import { Card } from "../../components/ui/Card";
 import { uiTheme } from "../../components/ui/theme";
 import type { ActivityLevel } from "../../types";
 import { useOnboardingStore } from "../../store/useOnboardingStore";
-import { OnboardingShell } from "./components/OnboardingShell";
+import { OnboardingShell } from "../../components/onboarding/OnboardingShell";
 import { useOnboardingStep } from "./_layout";
 
 const activityOptions: Array<{
