@@ -13,13 +13,13 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { testAIConnection } from "../onboarding/utils/testAIConnection";
+import { testAIConnection } from "../../utils/onboarding/testAIConnection";
 import {
   SettingsRow,
   SettingsSection,
   SettingsToggle,
 } from "../../components/settings/SettingsSection";
-import { TimePickerField } from "../onboarding/components/TimePickerField";
+import { TimePickerField } from "../../components/onboarding/TimePickerField";
 import { Badge } from "../../components/ui/Badge";
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
@@ -27,7 +27,6 @@ import { Input } from "../../components/ui/Input";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { uiTheme } from "../../components/ui/theme";
 import { PROVIDERS } from "../../data/providers";
-import { useNotifications } from "../../hooks/useNotifications";
 import { useToast } from "../../hooks/useToast";
 import { useAppStore } from "../../store/useAppStore";
 import type {
@@ -112,7 +111,6 @@ export default function SettingsScreen() {
   const clearAllDataAndRestart = useAppStore((s) => s.clearAllDataAndRestart);
   const initializeStore = useAppStore((s) => s.initializeStore);
 
-  const { updateFromConfig } = useNotifications();
   const { showToast } = useToast();
 
   const [sheet, setSheet] = useState<SheetKind>(null);
@@ -197,7 +195,7 @@ export default function SettingsScreen() {
 
   const saveNotifications = async () => {
     setNotificationConfig(notifDraft);
-    await updateFromConfig(notifDraft);
+    void useAppStore.getState().persistAll?.();
     showToast("Notifications updated", "success");
   };
 

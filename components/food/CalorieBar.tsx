@@ -1,9 +1,4 @@
 import { StyleSheet, Text, View } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
 
 import { uiTheme } from "../ui/theme";
 
@@ -22,12 +17,6 @@ export function CalorieBar({ consumed, goal }: CalorieBarProps) {
   const safeGoal = Math.max(1, goal);
   const remaining = Math.max(0, goal - consumed);
   const ratio = Math.min(1, consumed / safeGoal);
-  const animated = useSharedValue(ratio);
-  animated.value = withTiming(ratio, { duration: 400 });
-
-  const fillStyle = useAnimatedStyle(() => ({
-    width: `${animated.value * 100}%`,
-  }));
 
   return (
     <View>
@@ -37,8 +26,11 @@ export function CalorieBar({ consumed, goal }: CalorieBarProps) {
         <Text style={styles.meta}>Goal {goal} kcal</Text>
       </View>
       <View style={styles.track}>
-        <Animated.View
-          style={[styles.fill, fillStyle, { backgroundColor: colorFor(consumed, goal) }]}
+        <View
+          style={[
+            styles.fill,
+            { width: `${ratio * 100}%`, backgroundColor: colorFor(consumed, goal) },
+          ]}
         />
       </View>
     </View>

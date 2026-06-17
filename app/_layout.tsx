@@ -1,7 +1,6 @@
-import "../global.css";
 import "react-native-gesture-handler";
 
-import { Stack, useRouter } from "expo-router";
+import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
@@ -37,23 +36,12 @@ export default function RootLayout() {
   const initializeStore = useAppStore((state) => state.initializeStore);
   const isStoreInitialized = useAppStore((state) => state.isStoreInitialized);
   const isLoading = useAppStore((state) => state.isLoading);
-  const isOnboarded = useAppStore((state) => state.isOnboarded);
-  const router = useRouter();
 
   const [splashMounted, setSplashMounted] = useState(true);
 
   useEffect(() => {
     void initializeStore();
   }, [initializeStore]);
-
-  useEffect(() => {
-    if (!isStoreInitialized) return;
-    if (isOnboarded) {
-      router.replace("/(tabs)");
-    } else {
-      router.replace("/onboarding");
-    }
-  }, [isStoreInitialized, isOnboarded, router]);
 
   if (isLoading && !isStoreInitialized) {
     return <LoadingScreen />;

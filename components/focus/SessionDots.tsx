@@ -1,10 +1,4 @@
 import { Platform, StyleSheet, View } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from "react-native-reanimated";
 
 import { uiTheme } from "../ui/theme";
 
@@ -19,25 +13,13 @@ function Dot({
 }: {
   state: "done" | "current" | "empty";
 }) {
-  const glow = useSharedValue(1);
-  if (state === "current") {
-    glow.value = withRepeat(withTiming(1.15, { duration: 700 }), -1, true);
-  } else {
-    glow.value = withTiming(1, { duration: 200 });
-  }
-
-  const animated = useAnimatedStyle(() => ({
-    transform: [{ scale: glow.value }],
-  }));
-
   return (
-    <Animated.View
+    <View
       style={[
         styles.dot,
         state === "done" && styles.done,
         state === "empty" && styles.empty,
         state === "current" && styles.current,
-        animated,
       ]}
     />
   );

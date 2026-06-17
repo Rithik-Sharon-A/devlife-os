@@ -1,11 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from "react-native-reanimated";
 
 import { useAI } from "../../hooks/useAI";
 import { useAppStore } from "../../store/useAppStore";
@@ -13,11 +7,7 @@ import { Card } from "../ui/Card";
 import { uiTheme } from "../ui/theme";
 
 function ShimmerBlock() {
-  const opacity = useSharedValue(0.4);
-  opacity.value = withRepeat(withTiming(0.85, { duration: 700 }), -1, true);
-
-  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
-  return <Animated.View style={[styles.shimmer, style]} />;
+  return <View style={styles.shimmer} />;
 }
 
 export function AICard({ refreshToken = 0 }: { refreshToken?: number }) {
@@ -95,6 +85,7 @@ const styles = StyleSheet.create({
     height: 46,
     borderRadius: uiTheme.radiusInput,
     backgroundColor: uiTheme.surface3,
+    opacity: 0.6,
   },
   body: {
     marginTop: 10,

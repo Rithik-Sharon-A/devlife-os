@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 
@@ -16,8 +16,10 @@ interface MealSectionProps {
 
 export function MealSection({ mealType, title, onAddPress }: MealSectionProps) {
   const [open, setOpen] = useState(true);
-  const entries = useAppStore((s) =>
-    s.todayFoodLog.entries.filter((e) => e.mealType === mealType)
+  const allEntries = useAppStore((s) => s.todayFoodLog.entries);
+  const entries = useMemo(
+    () => allEntries.filter((e) => e.mealType === mealType),
+    [allEntries, mealType]
   );
   const removeMealEntry = useAppStore((s) => s.removeMealEntry);
 

@@ -7,11 +7,6 @@ import {
   Text,
   View,
 } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
 
 import { uiTheme } from "./theme";
 
@@ -36,23 +31,15 @@ export function BottomSheet({
   title,
   height = "half",
 }: BottomSheetProps) {
-  const translateY = useSharedValue(400);
-
-  translateY.value = withTiming(visible ? 0 : 400, { duration: 260 });
-
-  const sheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-  }));
-
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
-        <Animated.View style={[styles.sheet, { height: resolveHeight(height) }, sheetStyle]}>
+        <View style={[styles.sheet, { height: resolveHeight(height) }]}>
           <View style={styles.dragHandle} />
           {title ? <Text style={styles.title}>{title}</Text> : null}
           <View style={styles.content}>{children}</View>
-        </Animated.View>
+        </View>
       </View>
     </Modal>
   );

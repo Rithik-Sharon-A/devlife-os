@@ -1,12 +1,4 @@
-import { useEffect } from "react";
 import { Platform, Pressable, StyleSheet, View } from "react-native";
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 
 import { uiTheme } from "../ui/theme";
@@ -42,24 +34,6 @@ function BottleIcon({
   size: "md" | "lg";
 }) {
   const dims = SIZES[size];
-  const fillAnim = useSharedValue(fill);
-  const wave = useSharedValue(0);
-
-  useEffect(() => {
-    fillAnim.value = withTiming(fill, { duration: 450, easing: Easing.out(Easing.cubic) });
-    if (fill > 0) {
-      wave.value = withRepeat(
-        withTiming(1, { duration: 1800, easing: Easing.linear }),
-        -1,
-        false
-      );
-    }
-  }, [fill, fillAnim, wave]);
-
-  const waterStyle = useAnimatedStyle(() => ({
-    height: `${fillAnim.value * 100}%`,
-    transform: [{ translateX: wave.value * 6 - 3 }],
-  }));
 
   return (
     <Pressable
@@ -82,9 +56,9 @@ function BottleIcon({
         </Svg>
 
         <View style={[styles.fillClip, { width: dims.width, height: dims.height }]}>
-          <Animated.View style={[styles.waterFill, waterStyle]}>
+          <View style={[styles.waterFill, { height: `${fill * 100}%` }]}>
             <View style={styles.waveSurface} />
-          </Animated.View>
+          </View>
         </View>
 
         <Svg

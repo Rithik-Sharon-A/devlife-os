@@ -1,74 +1,47 @@
-import * as Notifications from "expo-notifications";
-import { useCallback } from "react";
+import { Platform } from "react-native";
 
-import { useAppStore } from "../store/useAppStore";
-import type { NotificationConfig } from "../types";
-import {
-  requestNotificationPermission,
-  scheduleNotificationsFromConfig,
-} from "../utils/notificationScheduler";
-
-try {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-    }),
-  });
-} catch {
-  // Notifications not available in this environment
-}
-
-export function useNotifications() {
-  const notificationConfig = useAppStore((state) => state.notificationConfig);
-  const setNotificationConfigInStore = useAppStore(
-    (state) => state.setNotificationConfig
-  );
-
-  const requestPermission = useCallback(async (): Promise<boolean> => {
+export const useNotifications = () => {
+  const requestPermission = async () => {
     try {
-      return await requestNotificationPermission();
+      if (Platform.OS === "web") return false;
+      const { default: Notifications } = await import("expo-notifications");
+      const { status } = await Notifications.requestPermissionsAsync();
+      return status === "granted";
     } catch {
       return false;
     }
-  }, []);
+  };
 
-  const updateFromConfig = useCallback(
-    async (config: NotificationConfig): Promise<void> => {
-      try {
-        setNotificationConfigInStore(config);
-        void useAppStore.getState().persistAll?.();
-        await scheduleNotificationsFromConfig(config);
-      } catch {
-        // Notification scheduling failed silently
-      }
-    },
-    [setNotificationConfigInStore]
-  );
-
-  const refreshWaterReminders = useCallback(async (): Promise<void> => {
+  const scheduleLocalNotification = async (
+    title: string,
+    body: string,
+    seconds: number
+  ) => {
     try {
-      const config = useAppStore.getState().notificationConfig;
-      await scheduleNotificationsFromConfig(config);
-    } catch {
-      // Refresh failed silently
+      if (Platform.OS === "web") return;
+      const { default: Notifications } = await import("expo-notifications");
+      await Notifications.scheduleNotificationAsync({
+        content: { title, body },
+        trigger: { seconds },
+      });
+    } catch (e) {
+      console.log("Notification skipped:", e);
     }
-  }, []);
+  };
 
-  const cancelAll = useCallback(async (): Promise<void> => {
+  const cancelAll = async () => {
     try {
+      if (Platform.OS === "web") return;
+      const { default: Notifications } = await import("expo-notifications");
       await Notifications.cancelAllScheduledNotificationsAsync();
-    } catch {
-      // Cancel failed silently
-    }
-  }, []);
+    } catch {}
+  };
 
   return {
     requestPermission,
+    scheduleLocalNotification,
     cancelAll,
-    updateFromConfig,
-    refreshWaterReminders,
-    currentConfig: notificationConfig,
   };
-}
+};
+
+export default useNotifications;

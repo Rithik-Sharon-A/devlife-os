@@ -1,10 +1,5 @@
-import { useEffect } from "react";
-import { StyleSheet, Text } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
+import { useEffect, useRef } from "react";
+import { Animated, StyleSheet, Text } from "react-native";
 
 import { uiTheme } from "../ui/theme";
 
@@ -14,29 +9,27 @@ interface ToastProps {
 }
 
 export function Toast({ message, onHide }: ToastProps) {
-  const opacity = useSharedValue(0);
+  const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!message) {
-      opacity.value = withTiming(0, { duration: 200 });
+      Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }).start();
       return;
     }
 
-    opacity.value = withTiming(1, { duration: 200 });
+    Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
     const timer = setTimeout(() => {
-      opacity.value = withTiming(0, { duration: 200 });
+      Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }).start();
       onHide?.();
     }, 2200);
 
     return () => clearTimeout(timer);
   }, [message, onHide, opacity]);
 
-  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
-
   if (!message) return null;
 
   return (
-    <Animated.View style={[styles.toast, style]} pointerEvents="none">
+    <Animated.View style={[styles.toast, { opacity }]} pointerEvents="none">
       <Text style={styles.text}>{message}</Text>
     </Animated.View>
   );

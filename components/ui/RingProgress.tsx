@@ -1,13 +1,6 @@
 import type { ReactNode } from "react";
 import { StyleSheet, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
-import Animated, {
-  useAnimatedProps,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
-
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 interface RingProgressProps {
   size: number;
@@ -27,13 +20,7 @@ export function RingProgress({
   const clamped = Math.max(0, Math.min(1, progress));
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const animatedProgress = useSharedValue(clamped);
-
-  animatedProgress.value = withTiming(clamped, { duration: 500 });
-
-  const animatedProps = useAnimatedProps(() => ({
-    strokeDashoffset: circumference * (1 - animatedProgress.value),
-  }));
+  const strokeDashoffset = circumference * (1 - clamped);
 
   return (
     <View style={[styles.wrapper, { width: size, height: size }]}>
@@ -46,7 +33,7 @@ export function RingProgress({
           strokeWidth={strokeWidth}
           fill="transparent"
         />
-        <AnimatedCircle
+        <Circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
@@ -55,7 +42,7 @@ export function RingProgress({
           fill="transparent"
           strokeLinecap="round"
           strokeDasharray={`${circumference} ${circumference}`}
-          animatedProps={animatedProps}
+          strokeDashoffset={strokeDashoffset}
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
       </Svg>

@@ -1,35 +1,18 @@
 // Web stub — expo-notifications is not supported on web.
 // Metro resolves this file instead of useNotifications.ts on web platform.
 
-import { useCallback } from "react";
+export const useNotifications = () => {
+  const requestPermission = async () => false;
 
-import { useAppStore } from "../store/useAppStore";
-import type { NotificationConfig } from "../types";
+  const scheduleLocalNotification = async () => {};
 
-export function useNotifications() {
-  const notificationConfig = useAppStore((state) => state.notificationConfig);
-  const setNotificationConfigInStore = useAppStore(
-    (state) => state.setNotificationConfig
-  );
-
-  const requestPermission = useCallback(async () => false, []);
-
-  const updateFromConfig = useCallback(
-    async (config: NotificationConfig): Promise<void> => {
-      setNotificationConfigInStore(config);
-    },
-    [setNotificationConfigInStore]
-  );
-
-  const refreshWaterReminders = useCallback(async (): Promise<void> => {}, []);
-
-  const cancelAll = useCallback(async (): Promise<void> => {}, []);
+  const cancelAll = async () => {};
 
   return {
     requestPermission,
+    scheduleLocalNotification,
     cancelAll,
-    updateFromConfig,
-    refreshWaterReminders,
-    currentConfig: notificationConfig,
   };
-}
+};
+
+export default useNotifications;

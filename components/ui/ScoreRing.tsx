@@ -1,10 +1,4 @@
 import { StyleSheet, Text, View } from "react-native";
-import Animated, {
-  interpolateColor,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
 
 import { RingProgress } from "./RingProgress";
 import { uiTheme } from "./theme";
@@ -24,26 +18,17 @@ function scoreColor(score: number): string {
 export function ScoreRing({ score, size = 210 }: ScoreRingProps) {
   const clamped = Math.max(0, Math.min(100, score));
   const progress = clamped / 100;
-  const shared = useSharedValue(clamped);
-  shared.value = withTiming(clamped, { duration: 450 });
-
-  const scoreTextStyle = useAnimatedStyle(() => ({
-    color: interpolateColor(
-      shared.value,
-      [0, 40, 70, 90, 100],
-      [uiTheme.danger, uiTheme.warning, uiTheme.accent, uiTheme.success, uiTheme.success]
-    ),
-  }));
+  const color = scoreColor(clamped);
 
   return (
     <RingProgress
       size={size}
       progress={progress}
-      color={scoreColor(clamped)}
+      color={color}
       strokeWidth={14}
     >
       <View style={styles.center}>
-        <Animated.Text style={[styles.score, scoreTextStyle]}>{Math.round(clamped)}</Animated.Text>
+        <Text style={[styles.score, { color }]}>{Math.round(clamped)}</Text>
         <Text style={styles.label}>today</Text>
       </View>
     </RingProgress>

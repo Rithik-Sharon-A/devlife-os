@@ -1,11 +1,5 @@
-import { useEffect, useState } from "react";
-import { StyleSheet, Text } from "react-native";
-import Animated, {
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
+import { useEffect, useRef, useState } from "react";
+import { Animated, StyleSheet, Text } from "react-native";
 
 interface AppSplashProps {
   visible: boolean;
@@ -14,29 +8,31 @@ interface AppSplashProps {
 
 export function AppSplash({ visible, onHidden }: AppSplashProps) {
   const [mounted, setMounted] = useState(true);
-  const opacity = useSharedValue(1);
+  const opacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     if (visible) {
-      opacity.value = 1;
+      opacity.setValue(1);
       return;
     }
 
-    opacity.value = withTiming(0, { duration: 450 }, (finished) => {
+    Animated.timing(opacity, {
+      toValue: 0,
+      duration: 450,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
       if (finished) {
-        runOnJS(setMounted)(false);
-        if (onHidden) runOnJS(onHidden)();
+        setMounted(false);
+        onHidden?.();
       }
     });
   }, [visible, onHidden, opacity]);
-
-  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
   if (!mounted) return null;
 
   return (
     <Animated.View
-      style={[styles.container, style]}
+      style={[styles.container, { opacity }]}
       pointerEvents={visible ? "auto" : "none"}
     >
       <Text style={styles.title}>DayOS</Text>

@@ -10,12 +10,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from "react-native-reanimated";
 
 import { useAI } from "../../hooks/useAI";
 import type { AIMessage } from "../../types";
@@ -39,15 +33,10 @@ function id() {
 }
 
 function TypingIndicator() {
-  const pulse = useSharedValue(0.4);
-  useEffect(() => {
-    pulse.value = withRepeat(withTiming(1, { duration: 500 }), -1, true);
-  }, [pulse]);
-  const style = useAnimatedStyle(() => ({ opacity: pulse.value }));
   return (
     <View style={styles.typingWrap}>
       {[0, 1, 2].map((d) => (
-        <Animated.View key={d} style={[styles.dot, style]} />
+        <View key={d} style={styles.dot} />
       ))}
     </View>
   );
@@ -240,6 +229,7 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: uiTheme.radiusPill,
     backgroundColor: uiTheme.textSecondary,
+    opacity: 0.6,
   },
   quickRow: {
     flexDirection: "row",

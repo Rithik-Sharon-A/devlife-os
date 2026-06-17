@@ -4,20 +4,14 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type PropsWithChildren,
 } from "react";
-import { StyleSheet, Text } from "react-native";
-
-import { shadows } from "../../utils/styles";
-import Animated, {
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
+import { Animated, StyleSheet, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { shadows } from "../../utils/styles";
 import { uiTheme } from "../ui/theme";
 
 export type ToastVariant = "success" | "error" | "info";
@@ -49,33 +43,34 @@ function GlobalToast({
   onDismiss: () => void;
 }) {
   const insets = useSafeAreaInsets();
-  const translateY = useSharedValue(-120);
-  const opacity = useSharedValue(0);
+  const translateY = useRef(new Animated.Value(-120)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!toast) {
-      translateY.value = withTiming(-120, { duration: 220 });
-      opacity.value = withTiming(0, { duration: 220 });
+      Animated.parallel([
+        Animated.timing(translateY, { toValue: -120, duration: 220, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0, duration: 220, useNativeDriver: true }),
+      ]).start();
       return;
     }
 
-    translateY.value = withTiming(0, { duration: 280 });
-    opacity.value = withTiming(1, { duration: 280 });
+    Animated.parallel([
+      Animated.timing(translateY, { toValue: 0, duration: 280, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 280, useNativeDriver: true }),
+    ]).start();
 
     const timer = setTimeout(() => {
-      translateY.value = withTiming(-120, { duration: 220 });
-      opacity.value = withTiming(0, { duration: 220 }, (finished) => {
-        if (finished) runOnJS(onDismiss)();
+      Animated.parallel([
+        Animated.timing(translateY, { toValue: -120, duration: 220, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0, duration: 220, useNativeDriver: true }),
+      ]).start(({ finished }) => {
+        if (finished) onDismiss();
       });
     }, DISMISS_MS);
 
     return () => clearTimeout(timer);
   }, [toast, onDismiss, opacity, translateY]);
-
-  const style = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-    opacity: opacity.value,
-  }));
 
   if (!toast) return null;
 
@@ -84,7 +79,11 @@ function GlobalToast({
   return (
     <Animated.View
       pointerEvents="none"
-      style={[styles.toast, { top: insets.top + 8, borderColor: `${accent}66` }, style]}
+      style={[
+        styles.toast,
+        { top: insets.top + 8, borderColor: `${accent}66` },
+        { transform: [{ translateY }], opacity },
+      ]}
     >
       <Text style={[styles.text, { color: accent }]}>{toast.message}</Text>
     </Animated.View>
