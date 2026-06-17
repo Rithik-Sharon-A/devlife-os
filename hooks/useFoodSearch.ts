@@ -1,15 +1,13 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useState } from "react";
-import { MMKV } from "react-native-mmkv";
 
 import { indianFoods, searchFoods } from "../data/indianFoods";
 import type { FoodItem } from "../types";
 import { useAI } from "./useAI";
 
-const OFF_CACHE_KEY_PREFIX = "off_search_";
+const OFF_CACHE_KEY_PREFIX = "dayos:foodcache:";
 const OFF_API =
   "https://world.openfoodfacts.org/cgi/search.pl?search_terms={query}&json=1&fields=product_name,nutriments,serving_size&page_size=15";
-
-const offCacheMmkv = new MMKV({ id: "dayos-food-search" });
 
 export type FoodSearchLayer = "local" | "api" | "ai_estimate" | "idle";
 
@@ -37,9 +35,9 @@ function cacheKey(query: string): string {
   return `${OFF_CACHE_KEY_PREFIX}${query.toLowerCase().trim()}`;
 }
 
-function getCachedOffResults(query: string): FoodItem[] | null {
+async function getCachedOffResults(query: string): Promise<FoodItem[] | null> {
   try {
-    const raw = offCacheMmkv.getString(cacheKey(query));
+    const raw = await AsyncStorage.getItem(cacheKey(query));
     if (!raw) return null;
     return JSON.parse(raw) as FoodItem[];
   } catch {
@@ -48,11 +46,7 @@ function getCachedOffResults(query: string): FoodItem[] | null {
 }
 
 function setCachedOffResults(query: string, items: FoodItem[]): void {
-  try {
-    offCacheMmkv.set(cacheKey(query), JSON.stringify(items));
-  } catch {
-    // ignore cache failures
-  }
+  void AsyncStorage.setItem(cacheKey(query), JSON.stringify(items));
 }
 
 function mapOpenFoodFactsProduct(
@@ -105,7 +99,7 @@ export function useFoodSearch() {
       const trimmed = query.trim();
       if (!trimmed) return [];
 
-      const cached = getCachedOffResults(trimmed);
+      const cached = await getCachedOffResults(trimmed);
       if (cached) return cached;
 
       const url = OFF_API.replace(

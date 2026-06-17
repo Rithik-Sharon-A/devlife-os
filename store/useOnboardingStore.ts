@@ -1,4 +1,4 @@
-import { MMKV } from "react-native-mmkv";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
@@ -20,17 +20,6 @@ import {
 } from "../utils/tdee";
 import { useAppStore } from "./useAppStore";
 
-const onboardingMmkv = new MMKV({ id: "dayos-onboarding-draft" });
-
-const mmkvStorage = {
-  getItem: (name: string): string | null => onboardingMmkv.getString(name) ?? null,
-  setItem: (name: string, value: string): void => {
-    onboardingMmkv.set(name, value);
-  },
-  removeItem: (name: string): void => {
-    onboardingMmkv.delete(name);
-  },
-};
 
 export interface OnboardingDraft {
   name: string;
@@ -204,7 +193,7 @@ export const useOnboardingStore = create<OnboardingStore>()(
 
         const notificationConfig = get().buildNotificationConfig();
         useAppStore.setState({ notificationConfig });
-        app.persistAll();
+        void app.persistAll();
 
         if (!draft.aiSkipped && draft.aiProvider && draft.aiApiKey) {
           const aiConfig: AIConfig = {
@@ -225,12 +214,12 @@ export const useOnboardingStore = create<OnboardingStore>()(
         set((state) => {
           Object.assign(state, defaultDraft);
         });
-        onboardingMmkv.clearAll();
+        void AsyncStorage.removeItem("dayos-onboarding-draft");
       },
     })),
     {
       name: "dayos-onboarding-draft",
-      storage: createJSONStorage(() => mmkvStorage),
+      storage: createJSONStorage(() => AsyncStorage),
     }
   )
 );

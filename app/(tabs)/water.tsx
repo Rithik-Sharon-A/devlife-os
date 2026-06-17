@@ -27,8 +27,7 @@ function formatBottles(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
-function computeWaterStats(goalBottles: number) {
-  const logs = storage.getAllWaterLogs();
+function computeWaterStats(goalBottles: number, logs: Record<string, import("../../types").WaterLog>) {
   const last7 = getLast7Days();
 
   let totalBottles = 0;
@@ -86,6 +85,7 @@ export default function WaterScreen() {
   const [goalInput, setGoalInput] = useState(String(waterConfig.dailyGoalBottles));
   const [nudgeText, setNudgeText] = useState<string | null>(null);
   const [nudgeLoading, setNudgeLoading] = useState(false);
+  const [allWaterLogs, setAllWaterLogs] = useState<Record<string, import("../../types").WaterLog>>({});
 
   const isAiConfigured = Boolean(aiConfig?.apiKey && aiConfig.model);
   const hour = new Date().getHours();
@@ -98,9 +98,13 @@ export default function WaterScreen() {
   const percent = goalMl > 0 ? Math.min(100, Math.round((totalMl / goalMl) * 100)) : 0;
   const entries = waterLog?.entries ?? [];
 
+  useEffect(() => {
+    void storage.getAllWaterLogs().then(setAllWaterLogs);
+  }, [bottlesConsumed, entries.length]);
+
   const stats = useMemo(
-    () => computeWaterStats(goalBottles),
-    [goalBottles, bottlesConsumed, entries.length]
+    () => computeWaterStats(goalBottles, allWaterLogs),
+    [goalBottles, bottlesConsumed, entries.length, allWaterLogs]
   );
 
   const behindBottles = useMemo(() => {

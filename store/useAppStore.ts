@@ -1,6 +1,4 @@
-import { MMKV } from "react-native-mmkv";
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 
 import type {
@@ -33,6 +31,12 @@ import type {
 import { getNowString, getTimeOfDay, getTodayString } from "../utils/date";
 import * as storage from "../utils/storage";
 import {
+  DEFAULT_APP_PREFERENCES,
+  DEFAULT_FOCUS_CONFIG,
+  DEFAULT_NOTIFICATION_CONFIG,
+  DEFAULT_WATER_CONFIG,
+} from "../utils/storage";
+import {
   calculateBMR,
   calculateDailyCalorieGoal,
   calculateDayScore,
@@ -41,52 +45,7 @@ import {
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 
-const DEFAULT_WATER_CONFIG: WaterConfig = {
-  bottleSizeMl: 500,
-  dailyGoalBottles: 8,
-};
-
-const DEFAULT_FOCUS_CONFIG: FocusConfig = {
-  workMinutes: 25,
-  breakMinutes: 5,
-  sessionsBeforeLongBreak: 4,
-  longBreakMinutes: 15,
-};
-
-const DEFAULT_APP_PREFERENCES: AppPreferences = {
-  weightUnit: "kg",
-  heightUnit: "cm",
-  showStepsOnDashboard: true,
-  manualCalorieOverride: false,
-  manualCalorieGoal: 2000,
-  stepGoal: 8000,
-  lastActiveDate: "",
-  hasSeenMorningBriefing: false,
-};
-
-const EMPTY_DAY_SCORE: DayScore = {
-  tasksPercent: 0,
-  caloriesPercent: 0,
-  waterPercent: 0,
-  habitsPercent: 0,
-  overall: 0,
-};
-
 const DEFAULT_STEP_GOAL = 10_000;
-
-// ─── Persist storage (MMKV) ───────────────────────────────────────────────────
-
-const persistMmkv = new MMKV({ id: "dayos-zustand-persist" });
-
-const mmkvStorage = {
-  getItem: (name: string): string | null => persistMmkv.getString(name) ?? null,
-  setItem: (name: string, value: string): void => {
-    persistMmkv.set(name, value);
-  },
-  removeItem: (name: string): void => {
-    persistMmkv.delete(name);
-  },
-};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -159,6 +118,16 @@ function getTodayFocusStats(sessions: FocusSession[]): {
   };
 }
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+const EMPTY_DAY_SCORE: DayScore = {
+  tasksPercent: 0,
+  caloriesPercent: 0,
+  waterPercent: 0,
+  habitsPercent: 0,
+  overall: 0,
+};
+
 type StoreState = {
   profile: UserProfile | null;
   aiConfig: AIConfig | null;
@@ -185,6 +154,7 @@ type StoreState = {
   isLoadingAI: boolean;
   aiError: string | null;
   isStoreInitialized: boolean;
+  isLoading: boolean;
 };
 
 function buildDailyContextFromState(state: StoreState): DailyContext | null {
@@ -228,7 +198,7 @@ function syncDayScore(state: StoreState): void {
   }
 }
 
-// ─── Store types ──────────────────────────────────────────────────────────────
+// ─── Store actions interface ───────────────────────────────────────────────────
 
 interface AppActions {
   setProfile: (profile: UserProfile) => void;
@@ -302,7 +272,7 @@ interface AppActions {
   clearAllDataAndRestart: () => void;
 
   initializeStore: () => Promise<void>;
-  persistAll: () => void;
+  persistAll: () => Promise<void>;
 }
 
 export type AppStore = StoreState & AppActions;
@@ -327,812 +297,848 @@ const initialState: StoreState = {
   journalEntries: [],
   todayGratitude: null,
   bodyMetrics: [],
-  notificationConfig: storage.getNotificationConfig(),
-  appPreferences: storage.getAppPreferences(),
+  notificationConfig: DEFAULT_NOTIFICATION_CONFIG,
+  appPreferences: DEFAULT_APP_PREFERENCES,
   dayScore: EMPTY_DAY_SCORE,
   isLoadingAI: false,
   aiError: null,
   isStoreInitialized: false,
+  isLoading: false,
 };
 
 export const useAppStore = create<AppStore>()(
-  persist(
-    immer((set, get) => ({
-      ...initialState,
+  immer((set, get) => ({
+    ...initialState,
 
-      setProfile: (profile) => {
-        set((state) => {
-          state.profile = profile;
-          state.isOnboarded = profile.isOnboarded;
-          syncDayScore(state);
-        });
-        storage.saveUserProfile(profile);
-      },
+    setProfile: (profile) => {
+      set((state) => {
+        state.profile = profile;
+        state.isOnboarded = profile.isOnboarded;
+        syncDayScore(state);
+      });
+      void storage.saveUserProfile(profile);
+    },
 
-      updateProfile: (updates) => {
-        set((state) => {
-          if (!state.profile) return;
-          state.profile = { ...state.profile, ...updates };
-          if (updates.isOnboarded !== undefined) {
-            state.isOnboarded = updates.isOnboarded;
-          }
-          syncDayScore(state);
-        });
-        const profile = get().profile;
-        if (profile) storage.saveUserProfile(profile);
-      },
-
-      setOnboardingComplete: (complete) => {
-        set((state) => {
-          state.isOnboarded = complete;
-          if (state.profile) {
-            state.profile.isOnboarded = complete;
-          }
-        });
-        const profile = get().profile;
-        if (profile) storage.saveUserProfile({ ...profile, isOnboarded: complete });
-      },
-
-      addMealEntry: (entry) => {
-        set((state) => {
-          state.todayFoodLog.entries.push(entry);
-          recalcFoodTotals(state.todayFoodLog);
-          syncDayScore(state);
-        });
-        storage.saveTodayFoodLog(get().todayFoodLog);
-      },
-
-      removeMealEntry: (entryId) => {
-        set((state) => {
-          state.todayFoodLog.entries = state.todayFoodLog.entries.filter(
-            (e) => e.id !== entryId
-          );
-          recalcFoodTotals(state.todayFoodLog);
-          syncDayScore(state);
-        });
-        storage.saveTodayFoodLog(get().todayFoodLog);
-      },
-
-      updateMealEntry: (entryId, updates) => {
-        set((state) => {
-          const entry = state.todayFoodLog.entries.find((e) => e.id === entryId);
-          if (!entry) return;
-          Object.assign(entry, updates);
-          if (updates.quantity !== undefined || updates.foodItem) {
-            entry.calories = Math.round(
-              entry.foodItem.calories * entry.quantity
-            );
-          }
-          recalcFoodTotals(state.todayFoodLog);
-          syncDayScore(state);
-        });
-        storage.saveTodayFoodLog(get().todayFoodLog);
-      },
-
-      logWaterMl: (ml) => {
-        if (ml <= 0) return;
-
-        set((state) => {
-          const bottles = ml / state.waterConfig.bottleSizeMl;
-          const entry: WaterLogEntry = {
-            id: generateId(),
-            timestamp: getNowString(),
-            ml,
-            bottles,
-          };
-
-          if (state.waterLog) {
-            if (!state.waterLog.entries) state.waterLog.entries = [];
-            state.waterLog.entries.push(entry);
-            state.waterLog.bottleCount += bottles;
-            state.waterLog.totalMl += ml;
-            state.waterLog.timestamp = entry.timestamp;
-          } else {
-            state.waterLog = {
-              id: generateId(),
-              timestamp: entry.timestamp,
-              bottleCount: bottles,
-              totalMl: ml,
-              entries: [entry],
-            };
-          }
-
-          syncDayScore(state);
-        });
-
-        const waterLog = get().waterLog;
-        if (waterLog) {
-          storage.setWaterLogForDate(getTodayString(), waterLog);
+    updateProfile: (updates) => {
+      set((state) => {
+        if (!state.profile) return;
+        state.profile = { ...state.profile, ...updates };
+        if (updates.isOnboarded !== undefined) {
+          state.isOnboarded = updates.isOnboarded;
         }
-      },
+        syncDayScore(state);
+      });
+      const profile = get().profile;
+      if (profile) void storage.saveUserProfile(profile);
+    },
 
-      logWater: (bottles) => {
-        if (bottles <= 0) return;
-        const ml = bottles * get().waterConfig.bottleSizeMl;
-        get().logWaterMl(ml);
-      },
+    setOnboardingComplete: (complete) => {
+      set((state) => {
+        state.isOnboarded = complete;
+        if (state.profile) {
+          state.profile.isOnboarded = complete;
+        }
+      });
+      const profile = get().profile;
+      if (profile) void storage.saveUserProfile({ ...profile, isOnboarded: complete });
+    },
 
-      removeWaterEntry: (entryId) => {
-        set((state) => {
-          if (!state.waterLog?.entries?.length) return;
+    addMealEntry: (entry) => {
+      set((state) => {
+        state.todayFoodLog.entries.push(entry);
+        recalcFoodTotals(state.todayFoodLog);
+        syncDayScore(state);
+      });
+      void storage.saveTodayFoodLog(get().todayFoodLog);
+    },
 
-          const index = state.waterLog.entries.findIndex((e) => e.id === entryId);
-          if (index === -1) return;
-
-          const entry = state.waterLog.entries[index];
-          state.waterLog.entries.splice(index, 1);
-          state.waterLog.bottleCount = Math.max(
-            0,
-            state.waterLog.bottleCount - entry.bottles
-          );
-          state.waterLog.totalMl = Math.max(0, state.waterLog.totalMl - entry.ml);
-
-          if (state.waterLog.entries.length === 0) {
-            storage.deleteWaterLogForDate(getTodayString());
-            state.waterLog = null;
-          } else {
-            state.waterLog.timestamp =
-              state.waterLog.entries[state.waterLog.entries.length - 1].timestamp;
-            storage.setWaterLogForDate(getTodayString(), state.waterLog);
-          }
-
-          syncDayScore(state);
-        });
-      },
-
-      removeLastWaterLog: () => {
-        const log = get().waterLog;
-        if (!log?.entries?.length) return;
-        get().removeWaterEntry(log.entries[log.entries.length - 1].id);
-      },
-
-      updateWaterConfig: (config) => {
-        set((state) => {
-          state.waterConfig = config;
-          syncDayScore(state);
-        });
-      },
-
-      addTask: (task) => {
-        const newTask: Task = {
-          ...task,
-          id: generateId(),
-          createdAt: getNowString(),
-        };
-
-        set((state) => {
-          state.tasks.push(newTask);
-          syncDayScore(state);
-        });
-        storage.saveTask(newTask);
-      },
-
-      completeTask: (taskId) => {
-        set((state) => {
-          const task = state.tasks.find((t) => t.id === taskId);
-          if (!task) return;
-          task.isCompleted = true;
-          task.completedAt = getNowString();
-          syncDayScore(state);
-        });
-        const task = get().tasks.find((t) => t.id === taskId);
-        if (task) storage.saveTask(task);
-      },
-
-      deleteTask: (taskId) => {
-        set((state) => {
-          state.tasks = state.tasks.filter((t) => t.id !== taskId);
-          syncDayScore(state);
-        });
-        storage.deleteTask(taskId);
-      },
-
-      reorderTasks: (tasks) => {
-        set((state) => {
-          state.tasks = tasks;
-        });
-        storage.replaceTasks(tasks);
-      },
-
-      startFocusSession: (taskId, durationMinutes) => {
-        const { focusConfig } = get();
-        const session: FocusSession = {
-          id: generateId(),
-          taskId,
-          startTime: getNowString(),
-          durationMinutes: durationMinutes ?? focusConfig.workMinutes,
-          isCompleted: false,
-          type: "work",
-        };
-
-        set((state) => {
-          state.activeFocusSession = session;
-        });
-      },
-
-      pauseFocusSession: () => {
-        set((state) => {
-          if (!state.activeFocusSession) return;
-
-          const paused: FocusSession = {
-            ...state.activeFocusSession,
-            endTime: getNowString(),
-            isCompleted: false,
-          };
-
-          const index = state.focusSessions.findIndex(
-            (s) => s.id === paused.id
-          );
-          if (index === -1) {
-            state.focusSessions.push(paused);
-          } else {
-            state.focusSessions[index] = paused;
-          }
-
-          state.activeFocusSession = null;
-        });
-
-        const session = get().focusSessions.at(-1);
-        if (session) storage.saveFocusSession(session);
-      },
-
-      completeFocusSession: () => {
-        set((state) => {
-          if (!state.activeFocusSession) return;
-
-          const completed: FocusSession = {
-            ...state.activeFocusSession,
-            endTime: getNowString(),
-            isCompleted: true,
-          };
-
-          const index = state.focusSessions.findIndex(
-            (s) => s.id === completed.id
-          );
-          if (index === -1) {
-            state.focusSessions.push(completed);
-          } else {
-            state.focusSessions[index] = completed;
-          }
-
-          state.activeFocusSession = null;
-        });
-
-        const session = get().focusSessions.at(-1);
-        if (session) storage.saveFocusSession(session);
-      },
-
-      resetFocusSession: () => {
-        set((state) => {
-          state.activeFocusSession = null;
-        });
-      },
-
-      logBreakSession: (durationMinutes) => {
-        const end = new Date();
-        const start = new Date(end.getTime() - durationMinutes * 60_000);
-        const session: FocusSession = {
-          id: generateId(),
-          startTime: start.toISOString(),
-          endTime: end.toISOString(),
-          durationMinutes,
-          isCompleted: true,
-          type: "break",
-        };
-
-        set((state) => {
-          state.focusSessions.push(session);
-        });
-        storage.saveFocusSession(session);
-      },
-
-      updateFocusConfig: (config) => {
-        set((state) => {
-          state.focusConfig = { ...state.focusConfig, ...config };
-        });
-      },
-
-      addHabit: (habit) => {
-        const newHabit: Habit = {
-          ...habit,
-          id: generateId(),
-          createdAt: getNowString(),
-        };
-
-        set((state) => {
-          state.habits.push(newHabit);
-          syncDayScore(state);
-        });
-        storage.saveHabit(newHabit);
-      },
-
-      toggleHabit: (habitId) => {
-        const today = getTodayString();
-
-        set((state) => {
-          const existing = state.habitLogs.find(
-            (l) => l.habitId === habitId && l.date === today
-          );
-
-          if (existing) {
-            existing.isCompleted = !existing.isCompleted;
-            existing.completedAt = existing.isCompleted
-              ? getNowString()
-              : undefined;
-          } else {
-            state.habitLogs.push({
-              habitId,
-              date: today,
-              isCompleted: true,
-              completedAt: getNowString(),
-            });
-          }
-
-          syncDayScore(state);
-        });
-
-        const log = get().habitLogs.find(
-          (l) => l.habitId === habitId && l.date === today
+    removeMealEntry: (entryId) => {
+      set((state) => {
+        state.todayFoodLog.entries = state.todayFoodLog.entries.filter(
+          (e) => e.id !== entryId
         );
-        if (log) storage.saveHabitLog(log);
-      },
+        recalcFoodTotals(state.todayFoodLog);
+        syncDayScore(state);
+      });
+      void storage.saveTodayFoodLog(get().todayFoodLog);
+    },
 
-      deleteHabit: (habitId) => {
-        set((state) => {
-          state.habits = state.habits.filter((h) => h.id !== habitId);
-          state.habitLogs = state.habitLogs.filter(
-            (l) => l.habitId !== habitId
+    updateMealEntry: (entryId, updates) => {
+      set((state) => {
+        const entry = state.todayFoodLog.entries.find((e) => e.id === entryId);
+        if (!entry) return;
+        Object.assign(entry, updates);
+        if (updates.quantity !== undefined || updates.foodItem) {
+          entry.calories = Math.round(
+            entry.foodItem.calories * entry.quantity
           );
-          syncDayScore(state);
-        });
-        storage.replaceHabits(get().habits);
-        storage.replaceHabitLogs(get().habitLogs);
-      },
+        }
+        recalcFoodTotals(state.todayFoodLog);
+        syncDayScore(state);
+      });
+      void storage.saveTodayFoodLog(get().todayFoodLog);
+    },
 
-      editHabit: (habitId, updates) => {
-        set((state) => {
-          const habit = state.habits.find((h) => h.id === habitId);
-          if (!habit) return;
-          Object.assign(habit, updates);
-          syncDayScore(state);
-        });
-        const habit = get().habits.find((h) => h.id === habitId);
-        if (habit) storage.saveHabit(habit);
-      },
+    logWaterMl: (ml) => {
+      if (ml <= 0) return;
 
-      logSleep: (sleep) => {
-        const log: SleepLog = { ...sleep, id: generateId() };
-
-        set((state) => {
-          state.sleepLog = log;
-        });
-        storage.saveSleepLog(log);
-      },
-
-      updateSleepLog: (updates) => {
-        set((state) => {
-          if (!state.sleepLog) return;
-          state.sleepLog = { ...state.sleepLog, ...updates };
-        });
-        const log = get().sleepLog;
-        if (log) storage.saveSleepLog(log);
-      },
-
-      addWorkout: (workout) => {
-        const log: WorkoutLog = { ...workout, id: generateId() };
-
-        set((state) => {
-          state.todayWorkouts.push(log);
-        });
-        storage.saveWorkoutLog(log);
-      },
-
-      deleteWorkout: (workoutId) => {
-        const updated = storage
-          .getWorkoutHistory(365)
-          .filter((w) => w.id !== workoutId);
-
-        set((state) => {
-          state.todayWorkouts = state.todayWorkouts.filter(
-            (w) => w.id !== workoutId
-          );
-        });
-
-        storage.replaceWorkouts(updated);
-      },
-
-      logWeight: (weightKg, notes) => {
-        const log: BodyMetricLog = {
-          id: generateId(),
-          date: getTodayString(),
-          weightKg,
-          notes,
-        };
-
-        set((state) => {
-          state.bodyMetrics.unshift(log);
-          if (state.profile) {
-            state.profile.weightKg = weightKg;
-          }
-        });
-
-        storage.saveBodyMetric(log);
-        const profile = get().profile;
-        if (profile) storage.saveUserProfile(profile);
-      },
-
-      setMorningMood: (rating) => {
-        const today = getTodayString();
-
-        set((state) => {
-          state.moodLog = {
-            ...(state.moodLog ?? { date: today }),
-            date: today,
-            morningMood: rating,
-          };
-        });
-        const log = get().moodLog;
-        if (log) storage.saveMoodLog(log);
-      },
-
-      setEveningMood: (rating) => {
-        const today = getTodayString();
-
-        set((state) => {
-          state.moodLog = {
-            ...(state.moodLog ?? { date: today }),
-            date: today,
-            eveningMood: rating,
-          };
-        });
-        const log = get().moodLog;
-        if (log) storage.saveMoodLog(log);
-      },
-
-      setStressLevel: (level) => {
-        const today = getTodayString();
-
-        set((state) => {
-          state.moodLog = {
-            ...(state.moodLog ?? { date: today }),
-            date: today,
-            stressLevel: level,
-          };
-        });
-        const log = get().moodLog;
-        if (log) storage.saveMoodLog(log);
-      },
-
-      addJournalEntry: (content, tags) => {
-        const entry: JournalEntry = {
+      set((state) => {
+        const bottles = ml / state.waterConfig.bottleSizeMl;
+        const entry: WaterLogEntry = {
           id: generateId(),
           timestamp: getNowString(),
-          content,
-          tags,
+          ml,
+          bottles,
         };
 
-        set((state) => {
-          state.journalEntries.unshift(entry);
-        });
-        storage.saveJournalEntry(entry);
-      },
-
-      deleteJournalEntry: (id) => {
-        set((state) => {
-          state.journalEntries = state.journalEntries.filter(
-            (e) => e.id !== id
-          );
-        });
-        storage.deleteJournalEntry(id);
-      },
-
-      saveGratitude: (items) => {
-        const today = getTodayString();
-        const entry: GratitudeEntry = {
-          id: generateId(),
-          date: today,
-          items,
-        };
-
-        set((state) => {
-          state.todayGratitude = entry;
-        });
-        storage.saveGratitudeEntry(entry);
-      },
-
-      updateSteps: (steps) => {
-        const log: StepLog = {
-          date: getTodayString(),
-          steps,
-          goalSteps: get().stepLog?.goalSteps ?? DEFAULT_STEP_GOAL,
-        };
-
-        set((state) => {
-          state.stepLog = log;
-        });
-        storage.saveStepLog(log);
-      },
-
-      setAIConfig: (config) => {
-        set((state) => {
-          state.aiConfig = config;
-        });
-        storage.saveAIConfig(config);
-      },
-
-      setAILoading: (loading) => {
-        set((state) => {
-          state.isLoadingAI = loading;
-        });
-      },
-
-      setAIError: (error) => {
-        set((state) => {
-          state.aiError = error;
-        });
-      },
-
-      getDayScore: () => {
-        const state = get();
-        const context = buildDailyContextFromState(state);
-        return context ? calculateDayScore(context) : EMPTY_DAY_SCORE;
-      },
-
-      recalculateDayScore: () => {
-        set((state) => {
-          syncDayScore(state);
-        });
-      },
-
-      getDailyContext: () => {
-        const context = buildDailyContextFromState(get());
-        if (!context) {
-          throw new Error("Profile must be set before building daily context");
-        }
-        return context;
-      },
-
-      getRemainingCalories: () => {
-        const { profile, todayFoodLog } = get();
-        if (!profile) return 0;
-        return Math.max(0, profile.dailyCalorieGoal - todayFoodLog.totalCalories);
-      },
-
-      getCaloriesBurnedToday: () => {
-        return get().todayWorkouts.reduce(
-          (sum, w) => sum + w.caloriesBurned,
-          0
-        );
-      },
-
-      setNotificationConfig: (config) => {
-        set((state) => {
-          state.notificationConfig = config;
-        });
-        storage.saveNotificationConfig(config);
-      },
-
-      updateAppPreferences: (updates) => {
-        set((state) => {
-          state.appPreferences = { ...state.appPreferences, ...updates };
-        });
-        storage.saveAppPreferences(get().appPreferences);
-      },
-
-      updateStepGoal: (goalSteps) => {
-        const today = getTodayString();
-        const current = get().stepLog;
-
-        set((state) => {
-          state.stepLog = {
-            date: today,
-            steps: current?.steps ?? 0,
-            goalSteps,
+        if (state.waterLog) {
+          if (!state.waterLog.entries) state.waterLog.entries = [];
+          state.waterLog.entries.push(entry);
+          state.waterLog.bottleCount += bottles;
+          state.waterLog.totalMl += ml;
+          state.waterLog.timestamp = entry.timestamp;
+        } else {
+          state.waterLog = {
+            id: generateId(),
+            timestamp: entry.timestamp,
+            bottleCount: bottles,
+            totalMl: ml,
+            entries: [entry],
           };
-        });
-        storage.saveStepLog(get().stepLog!);
-      },
+        }
+        syncDayScore(state);
+      });
 
-      recalculateTDEE: () => {
-        const { profile, appPreferences } = get();
-        if (!profile) return;
+      const waterLog = get().waterLog;
+      if (waterLog) {
+        void storage.setWaterLogForDate(getTodayString(), waterLog);
+      }
+    },
 
-        const bmr = calculateBMR(
-          profile.weightKg,
-          profile.heightCm,
-          profile.age,
-          profile.gender
+    logWater: (bottles) => {
+      if (bottles <= 0) return;
+      const ml = bottles * get().waterConfig.bottleSizeMl;
+      get().logWaterMl(ml);
+    },
+
+    removeWaterEntry: (entryId) => {
+      let shouldDelete = false;
+
+      set((state) => {
+        if (!state.waterLog?.entries?.length) return;
+        const index = state.waterLog.entries.findIndex((e) => e.id === entryId);
+        if (index === -1) return;
+
+        const entry = state.waterLog.entries[index];
+        state.waterLog.entries.splice(index, 1);
+        state.waterLog.bottleCount = Math.max(
+          0,
+          state.waterLog.bottleCount - entry.bottles
         );
-        const tdee = calculateTDEE(bmr, profile.activityLevel);
-        const dailyCalorieGoal = appPreferences.manualCalorieOverride
-          ? appPreferences.manualCalorieGoal
-          : calculateDailyCalorieGoal(tdee, profile.goalType);
+        state.waterLog.totalMl = Math.max(0, state.waterLog.totalMl - entry.ml);
 
-        get().updateProfile({ tdee, dailyCalorieGoal });
-      },
-
-      resetTodayData: () => {
-        const today = getTodayString();
-
-        storage.resetTodayStorage(today);
-
-        set((state) => {
-          state.todayFoodLog = emptyFoodLog(today);
+        if (state.waterLog.entries.length === 0) {
           state.waterLog = null;
-          state.tasks = state.tasks.map((task) => ({
-            ...task,
-            isCompleted: false,
-            completedAt: undefined,
-          }));
-          state.habitLogs = state.habitLogs.filter((l) => l.date !== today);
-          state.focusSessions = [];
-          state.activeFocusSession = null;
-          state.sleepLog = null;
-          state.todayWorkouts = [];
-          state.moodLog = null;
-          state.todayGratitude = null;
-          if (state.stepLog) {
-            state.stepLog = { ...state.stepLog, date: today, steps: 0 };
-          }
-          syncDayScore(state);
-        });
+          shouldDelete = true;
+        } else {
+          state.waterLog.timestamp =
+            state.waterLog.entries[state.waterLog.entries.length - 1].timestamp;
+        }
+        syncDayScore(state);
+      });
 
-        storage.replaceTasks(get().tasks);
-      },
+      const today = getTodayString();
+      if (shouldDelete) {
+        void storage.deleteWaterLogForDate(today);
+      } else {
+        const waterLog = get().waterLog;
+        if (waterLog) void storage.setWaterLogForDate(today, waterLog);
+      }
+    },
 
-      rollToNewDay: () => {
-        const today = getTodayString();
-        const goalSteps = get().appPreferences.stepGoal;
+    removeLastWaterLog: () => {
+      const log = get().waterLog;
+      if (!log?.entries?.length) return;
+      get().removeWaterEntry(log.entries[log.entries.length - 1].id);
+    },
 
-        set((state) => {
-          state.todayFoodLog = emptyFoodLog(today);
-          state.waterLog = null;
-          state.tasks = state.tasks.map((task) => ({
-            ...task,
-            isCompleted: false,
-            completedAt: undefined,
-          }));
-          state.focusSessions = [];
-          state.activeFocusSession = null;
-          state.sleepLog = null;
-          state.todayWorkouts = [];
-          state.moodLog = null;
-          state.todayGratitude = null;
-          state.stepLog = { date: today, steps: 0, goalSteps };
-          syncDayScore(state);
-        });
+    updateWaterConfig: (config) => {
+      set((state) => {
+        state.waterConfig = config;
+        syncDayScore(state);
+      });
+      void storage.saveWaterConfig(config);
+    },
 
-        storage.saveTodayFoodLog(get().todayFoodLog);
-        storage.replaceTasks(get().tasks);
-        storage.saveStepLog(get().stepLog!);
-      },
+    addTask: (task) => {
+      const newTask: Task = {
+        ...task,
+        id: generateId(),
+        createdAt: getNowString(),
+      };
 
-      checkDayRollover: () => {
-        const today = getTodayString();
-        const { lastActiveDate } = get().appPreferences;
+      set((state) => {
+        state.tasks.push(newTask);
+        syncDayScore(state);
+      });
+      void storage.saveTask(newTask);
+    },
 
-        if (!lastActiveDate) {
-          get().updateAppPreferences({ lastActiveDate: today });
-          return;
+    completeTask: (taskId) => {
+      set((state) => {
+        const task = state.tasks.find((t) => t.id === taskId);
+        if (!task) return;
+        task.isCompleted = true;
+        task.completedAt = getNowString();
+        syncDayScore(state);
+      });
+      const task = get().tasks.find((t) => t.id === taskId);
+      if (task) void storage.saveTask(task);
+    },
+
+    deleteTask: (taskId) => {
+      set((state) => {
+        state.tasks = state.tasks.filter((t) => t.id !== taskId);
+        syncDayScore(state);
+      });
+      void storage.deleteTask(taskId);
+    },
+
+    reorderTasks: (tasks) => {
+      set((state) => {
+        state.tasks = tasks;
+      });
+      void storage.replaceTasks(tasks);
+    },
+
+    startFocusSession: (taskId, durationMinutes) => {
+      const { focusConfig } = get();
+      const session: FocusSession = {
+        id: generateId(),
+        taskId,
+        startTime: getNowString(),
+        durationMinutes: durationMinutes ?? focusConfig.workMinutes,
+        isCompleted: false,
+        type: "work",
+      };
+
+      set((state) => {
+        state.activeFocusSession = session;
+      });
+    },
+
+    pauseFocusSession: () => {
+      set((state) => {
+        if (!state.activeFocusSession) return;
+
+        const paused: FocusSession = {
+          ...state.activeFocusSession,
+          endTime: getNowString(),
+          isCompleted: false,
+        };
+
+        const index = state.focusSessions.findIndex((s) => s.id === paused.id);
+        if (index === -1) {
+          state.focusSessions.push(paused);
+        } else {
+          state.focusSessions[index] = paused;
         }
 
-        if (lastActiveDate === today) return;
+        state.activeFocusSession = null;
+      });
 
-        get().rollToNewDay();
-        get().updateAppPreferences({ lastActiveDate: today });
-      },
+      const session = get().focusSessions.at(-1);
+      if (session) void storage.saveFocusSession(session);
+    },
 
-      dismissMorningBriefing: () => {
-        get().updateAppPreferences({ hasSeenMorningBriefing: true });
-      },
+    completeFocusSession: () => {
+      set((state) => {
+        if (!state.activeFocusSession) return;
 
-      clearAllDataAndRestart: () => {
-        storage.clearAllData();
-        set((state) => {
-          Object.assign(state, {
-            ...initialState,
-            notificationConfig: storage.getNotificationConfig(),
-            appPreferences: storage.getAppPreferences(),
+        const completed: FocusSession = {
+          ...state.activeFocusSession,
+          endTime: getNowString(),
+          isCompleted: true,
+        };
+
+        const index = state.focusSessions.findIndex(
+          (s) => s.id === completed.id
+        );
+        if (index === -1) {
+          state.focusSessions.push(completed);
+        } else {
+          state.focusSessions[index] = completed;
+        }
+
+        state.activeFocusSession = null;
+      });
+
+      const session = get().focusSessions.at(-1);
+      if (session) void storage.saveFocusSession(session);
+    },
+
+    resetFocusSession: () => {
+      set((state) => {
+        state.activeFocusSession = null;
+      });
+    },
+
+    logBreakSession: (durationMinutes) => {
+      const end = new Date();
+      const start = new Date(end.getTime() - durationMinutes * 60_000);
+      const session: FocusSession = {
+        id: generateId(),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+        durationMinutes,
+        isCompleted: true,
+        type: "break",
+      };
+
+      set((state) => {
+        state.focusSessions.push(session);
+      });
+      void storage.saveFocusSession(session);
+    },
+
+    updateFocusConfig: (config) => {
+      set((state) => {
+        state.focusConfig = { ...state.focusConfig, ...config };
+      });
+      void storage.saveFocusConfig(get().focusConfig);
+    },
+
+    addHabit: (habit) => {
+      const newHabit: Habit = {
+        ...habit,
+        id: generateId(),
+        createdAt: getNowString(),
+      };
+
+      set((state) => {
+        state.habits.push(newHabit);
+        syncDayScore(state);
+      });
+      void storage.saveHabit(newHabit);
+    },
+
+    toggleHabit: (habitId) => {
+      const today = getTodayString();
+
+      set((state) => {
+        const existing = state.habitLogs.find(
+          (l) => l.habitId === habitId && l.date === today
+        );
+
+        if (existing) {
+          existing.isCompleted = !existing.isCompleted;
+          existing.completedAt = existing.isCompleted
+            ? getNowString()
+            : undefined;
+        } else {
+          state.habitLogs.push({
+            habitId,
+            date: today,
+            isCompleted: true,
+            completedAt: getNowString(),
           });
-        });
-      },
+        }
 
-      initializeStore: async () => {
-        const today = getTodayString();
-        const profile = storage.getUserProfile();
+        syncDayScore(state);
+      });
+
+      const log = get().habitLogs.find(
+        (l) => l.habitId === habitId && l.date === today
+      );
+      if (log) void storage.saveHabitLog(log);
+    },
+
+    deleteHabit: (habitId) => {
+      set((state) => {
+        state.habits = state.habits.filter((h) => h.id !== habitId);
+        state.habitLogs = state.habitLogs.filter(
+          (l) => l.habitId !== habitId
+        );
+        syncDayScore(state);
+      });
+      void storage.replaceHabits(get().habits);
+      void storage.replaceHabitLogs(get().habitLogs);
+    },
+
+    editHabit: (habitId, updates) => {
+      set((state) => {
+        const habit = state.habits.find((h) => h.id === habitId);
+        if (!habit) return;
+        Object.assign(habit, updates);
+        syncDayScore(state);
+      });
+      const habit = get().habits.find((h) => h.id === habitId);
+      if (habit) void storage.saveHabit(habit);
+    },
+
+    logSleep: (sleep) => {
+      const log: SleepLog = { ...sleep, id: generateId() };
+
+      set((state) => {
+        state.sleepLog = log;
+      });
+      void storage.saveSleepLog(log);
+    },
+
+    updateSleepLog: (updates) => {
+      set((state) => {
+        if (!state.sleepLog) return;
+        state.sleepLog = { ...state.sleepLog, ...updates };
+      });
+      const log = get().sleepLog;
+      if (log) void storage.saveSleepLog(log);
+    },
+
+    addWorkout: (workout) => {
+      const log: WorkoutLog = { ...workout, id: generateId() };
+
+      set((state) => {
+        state.todayWorkouts.push(log);
+      });
+      void storage.saveWorkoutLog(log);
+    },
+
+    deleteWorkout: (workoutId) => {
+      set((state) => {
+        state.todayWorkouts = state.todayWorkouts.filter(
+          (w) => w.id !== workoutId
+        );
+      });
+
+      void (async () => {
+        const all = await storage.getWorkoutHistory(365);
+        void storage.replaceWorkouts(all.filter((w) => w.id !== workoutId));
+      })();
+    },
+
+    logWeight: (weightKg, notes) => {
+      const log: BodyMetricLog = {
+        id: generateId(),
+        date: getTodayString(),
+        weightKg,
+        notes,
+      };
+
+      set((state) => {
+        state.bodyMetrics.unshift(log);
+        if (state.profile) {
+          state.profile.weightKg = weightKg;
+        }
+      });
+
+      void storage.saveBodyMetric(log);
+      const profile = get().profile;
+      if (profile) void storage.saveUserProfile(profile);
+    },
+
+    setMorningMood: (rating) => {
+      const today = getTodayString();
+
+      set((state) => {
+        state.moodLog = {
+          ...(state.moodLog ?? { date: today }),
+          date: today,
+          morningMood: rating,
+        };
+      });
+      const log = get().moodLog;
+      if (log) void storage.saveMoodLog(log);
+    },
+
+    setEveningMood: (rating) => {
+      const today = getTodayString();
+
+      set((state) => {
+        state.moodLog = {
+          ...(state.moodLog ?? { date: today }),
+          date: today,
+          eveningMood: rating,
+        };
+      });
+      const log = get().moodLog;
+      if (log) void storage.saveMoodLog(log);
+    },
+
+    setStressLevel: (level) => {
+      const today = getTodayString();
+
+      set((state) => {
+        state.moodLog = {
+          ...(state.moodLog ?? { date: today }),
+          date: today,
+          stressLevel: level,
+        };
+      });
+      const log = get().moodLog;
+      if (log) void storage.saveMoodLog(log);
+    },
+
+    addJournalEntry: (content, tags) => {
+      const entry: JournalEntry = {
+        id: generateId(),
+        timestamp: getNowString(),
+        content,
+        tags,
+      };
+
+      set((state) => {
+        state.journalEntries.unshift(entry);
+      });
+      void storage.saveJournalEntry(entry);
+    },
+
+    deleteJournalEntry: (id) => {
+      set((state) => {
+        state.journalEntries = state.journalEntries.filter((e) => e.id !== id);
+      });
+      void storage.deleteJournalEntry(id);
+    },
+
+    saveGratitude: (items) => {
+      const today = getTodayString();
+      const entry: GratitudeEntry = {
+        id: generateId(),
+        date: today,
+        items,
+      };
+
+      set((state) => {
+        state.todayGratitude = entry;
+      });
+      void storage.saveGratitudeEntry(entry);
+    },
+
+    updateSteps: (steps) => {
+      const log: StepLog = {
+        date: getTodayString(),
+        steps,
+        goalSteps: get().stepLog?.goalSteps ?? DEFAULT_STEP_GOAL,
+      };
+
+      set((state) => {
+        state.stepLog = log;
+      });
+      void storage.saveStepLog(log);
+    },
+
+    setAIConfig: (config) => {
+      set((state) => {
+        state.aiConfig = config;
+      });
+      void storage.saveAIConfig(config);
+    },
+
+    setAILoading: (loading) => {
+      set((state) => {
+        state.isLoadingAI = loading;
+      });
+    },
+
+    setAIError: (error) => {
+      set((state) => {
+        state.aiError = error;
+      });
+    },
+
+    getDayScore: () => {
+      const state = get();
+      const context = buildDailyContextFromState(state);
+      return context ? calculateDayScore(context) : EMPTY_DAY_SCORE;
+    },
+
+    recalculateDayScore: () => {
+      set((state) => {
+        syncDayScore(state);
+      });
+    },
+
+    getDailyContext: () => {
+      const context = buildDailyContextFromState(get());
+      if (!context) {
+        throw new Error("Profile must be set before building daily context");
+      }
+      return context;
+    },
+
+    getRemainingCalories: () => {
+      const { profile, todayFoodLog } = get();
+      if (!profile) return 0;
+      return Math.max(0, profile.dailyCalorieGoal - todayFoodLog.totalCalories);
+    },
+
+    getCaloriesBurnedToday: () => {
+      return get().todayWorkouts.reduce(
+        (sum, w) => sum + w.caloriesBurned,
+        0
+      );
+    },
+
+    setNotificationConfig: (config) => {
+      set((state) => {
+        state.notificationConfig = config;
+      });
+      void storage.saveNotificationConfig(config);
+    },
+
+    updateAppPreferences: (updates) => {
+      set((state) => {
+        state.appPreferences = { ...state.appPreferences, ...updates };
+      });
+      void storage.saveAppPreferences(get().appPreferences);
+    },
+
+    updateStepGoal: (goalSteps) => {
+      const today = getTodayString();
+      const current = get().stepLog;
+
+      set((state) => {
+        state.stepLog = {
+          date: today,
+          steps: current?.steps ?? 0,
+          goalSteps,
+        };
+      });
+      void storage.saveStepLog(get().stepLog!);
+    },
+
+    recalculateTDEE: () => {
+      const { profile, appPreferences } = get();
+      if (!profile) return;
+
+      const bmr = calculateBMR(
+        profile.weightKg,
+        profile.heightCm,
+        profile.age,
+        profile.gender
+      );
+      const tdee = calculateTDEE(bmr, profile.activityLevel);
+      const dailyCalorieGoal = appPreferences.manualCalorieOverride
+        ? appPreferences.manualCalorieGoal
+        : calculateDailyCalorieGoal(tdee, profile.goalType);
+
+      get().updateProfile({ tdee, dailyCalorieGoal });
+    },
+
+    resetTodayData: () => {
+      const today = getTodayString();
+
+      void storage.resetTodayStorage(today);
+
+      set((state) => {
+        state.todayFoodLog = emptyFoodLog(today);
+        state.waterLog = null;
+        state.tasks = state.tasks.map((task) => ({
+          ...task,
+          isCompleted: false,
+          completedAt: undefined,
+        }));
+        state.habitLogs = state.habitLogs.filter((l) => l.date !== today);
+        state.focusSessions = [];
+        state.activeFocusSession = null;
+        state.sleepLog = null;
+        state.todayWorkouts = [];
+        state.moodLog = null;
+        state.todayGratitude = null;
+        if (state.stepLog) {
+          state.stepLog = { ...state.stepLog, date: today, steps: 0 };
+        }
+        syncDayScore(state);
+      });
+
+      void storage.replaceTasks(get().tasks);
+    },
+
+    rollToNewDay: () => {
+      const today = getTodayString();
+      const goalSteps = get().appPreferences.stepGoal;
+
+      set((state) => {
+        state.todayFoodLog = emptyFoodLog(today);
+        state.waterLog = null;
+        state.tasks = state.tasks.map((task) => ({
+          ...task,
+          isCompleted: false,
+          completedAt: undefined,
+        }));
+        state.focusSessions = [];
+        state.activeFocusSession = null;
+        state.sleepLog = null;
+        state.todayWorkouts = [];
+        state.moodLog = null;
+        state.todayGratitude = null;
+        state.stepLog = { date: today, steps: 0, goalSteps };
+        syncDayScore(state);
+      });
+
+      void storage.saveTodayFoodLog(get().todayFoodLog);
+      void storage.replaceTasks(get().tasks);
+      if (get().stepLog) void storage.saveStepLog(get().stepLog!);
+    },
+
+    checkDayRollover: () => {
+      const today = getTodayString();
+      const { lastActiveDate } = get().appPreferences;
+
+      if (!lastActiveDate) {
+        get().updateAppPreferences({ lastActiveDate: today });
+        return;
+      }
+
+      if (lastActiveDate === today) return;
+
+      get().rollToNewDay();
+      get().updateAppPreferences({ lastActiveDate: today });
+    },
+
+    dismissMorningBriefing: () => {
+      get().updateAppPreferences({ hasSeenMorningBriefing: true });
+    },
+
+    clearAllDataAndRestart: () => {
+      void storage.clearAllData();
+      set((state) => {
+        Object.assign(state, { ...initialState });
+      });
+    },
+
+    initializeStore: async () => {
+      const today = getTodayString();
+
+      set((state) => {
+        state.isLoading = true;
+      });
+
+      try {
+        const [
+          profile,
+          aiConfig,
+          todayFoodLog,
+          waterLog,
+          tasks,
+          habits,
+          habitLogs,
+          focusSessions,
+          sleepLog,
+          todayWorkouts,
+          stepLog,
+          moodLog,
+          journalEntries,
+          todayGratitude,
+          bodyMetrics,
+          notificationConfig,
+          appPreferences,
+          waterConfig,
+          focusConfig,
+        ] = await Promise.all([
+          storage.getUserProfile(),
+          storage.getAIConfig(),
+          storage.getFoodLog(today),
+          storage.getTodayWaterLog(),
+          storage.getTasks(),
+          storage.seedDefaultHabitsIfEmpty(),
+          storage.getAllHabitLogs(),
+          storage.getTodayFocusSessions(),
+          storage.getSleepLog(today),
+          storage.getTodayWorkouts(),
+          storage.getTodaySteps(),
+          storage.getMoodLog(today),
+          storage.getJournalEntries(100),
+          storage.getGratitudeEntry(today),
+          storage.getBodyMetrics(90),
+          storage.getNotificationConfig(),
+          storage.getAppPreferences(),
+          storage.getWaterConfig(),
+          storage.getFocusConfig(),
+        ]);
 
         set((state) => {
           state.profile = profile;
           state.isOnboarded = profile?.isOnboarded ?? false;
-          state.aiConfig = storage.getAIConfig();
-          state.todayFoodLog =
-            storage.getFoodLog(today) ?? emptyFoodLog(today);
-          state.waterLog = storage.getTodayWaterLog();
+          state.aiConfig = aiConfig;
+          state.todayFoodLog = todayFoodLog ?? emptyFoodLog(today);
+          state.waterLog = waterLog;
           if (state.waterLog && !state.waterLog.entries) {
             state.waterLog.entries = [];
           }
-          state.tasks = storage.getTasks();
-          state.habits = storage.seedDefaultHabitsIfEmpty();
-          state.habitLogs = storage.getAllHabitLogs();
-          state.focusSessions = storage.getTodayFocusSessions();
-          state.sleepLog = storage.getSleepLog(today);
-          state.todayWorkouts = storage.getTodayWorkouts();
-          state.stepLog = storage.getTodaySteps();
-          state.moodLog = storage.getMoodLog(today);
-          state.journalEntries = storage.getJournalEntries(100);
-          state.todayGratitude = storage.getGratitudeEntry(today);
-          state.bodyMetrics = storage.getBodyMetrics(90);
-          state.notificationConfig = storage.getNotificationConfig();
-          state.appPreferences = storage.getAppPreferences();
+          state.tasks = tasks;
+          state.habits = habits;
+          state.habitLogs = habitLogs;
+          state.focusSessions = focusSessions;
+          state.sleepLog = sleepLog;
+          state.todayWorkouts = todayWorkouts;
+          state.stepLog = stepLog;
+          state.moodLog = moodLog;
+          state.journalEntries = journalEntries;
+          state.todayGratitude = todayGratitude;
+          state.bodyMetrics = bodyMetrics;
+          state.notificationConfig = notificationConfig;
+          state.appPreferences = appPreferences;
+          state.waterConfig = waterConfig;
+          state.focusConfig = focusConfig;
           syncDayScore(state);
           state.isStoreInitialized = true;
+          state.isLoading = false;
         });
 
         get().checkDayRollover();
-      },
+      } catch (error) {
+        console.error("[DayOS] Failed to initialize store:", error);
+        set((state) => {
+          state.isLoading = false;
+          state.isStoreInitialized = true;
+        });
+      }
+    },
 
-      persistAll: () => {
-        const state = get();
-        const today = getTodayString();
+    persistAll: async () => {
+      const state = get();
+      const today = getTodayString();
 
-        if (state.profile) storage.saveUserProfile(state.profile);
-        if (state.aiConfig) storage.saveAIConfig(state.aiConfig);
+      const saves: Promise<void>[] = [
+        storage.saveTodayFoodLog(state.todayFoodLog),
+        storage.replaceTasks(state.tasks),
+        storage.replaceHabits(state.habits),
+        storage.replaceHabitLogs(state.habitLogs),
+        storage.saveNotificationConfig(state.notificationConfig),
+        storage.saveAppPreferences(state.appPreferences),
+        storage.saveWaterConfig(state.waterConfig),
+        storage.saveFocusConfig(state.focusConfig),
+      ];
 
-        storage.saveTodayFoodLog(state.todayFoodLog);
+      if (state.profile) saves.push(storage.saveUserProfile(state.profile));
+      if (state.aiConfig) saves.push(storage.saveAIConfig(state.aiConfig));
+      if (state.waterLog) {
+        saves.push(storage.setWaterLogForDate(today, state.waterLog));
+      }
+      if (state.sleepLog) saves.push(storage.saveSleepLog(state.sleepLog));
+      if (state.moodLog) saves.push(storage.saveMoodLog(state.moodLog));
+      if (state.todayGratitude) {
+        saves.push(storage.saveGratitudeEntry(state.todayGratitude));
+      }
+      if (state.stepLog) saves.push(storage.saveStepLog(state.stepLog));
 
-        if (state.waterLog) {
-          storage.setWaterLogForDate(today, state.waterLog);
-        } else {
-          storage.deleteWaterLogForDate(today);
-        }
+      for (const session of state.focusSessions) {
+        saves.push(storage.saveFocusSession(session));
+      }
+      for (const entry of state.journalEntries) {
+        saves.push(storage.saveJournalEntry(entry));
+      }
+      for (const metric of state.bodyMetrics) {
+        saves.push(storage.saveBodyMetric(metric));
+      }
 
-        storage.replaceTasks(state.tasks);
-        storage.replaceHabits(state.habits);
-        storage.replaceHabitLogs(state.habitLogs);
+      void (async () => {
+        const allWorkouts = await storage.getWorkoutHistory(365);
+        const otherDays = allWorkouts.filter((w) => w.date !== today);
+        void storage.replaceWorkouts([...otherDays, ...state.todayWorkouts]);
+      })();
 
-        for (const session of state.focusSessions) {
-          storage.saveFocusSession(session);
-        }
-
-        if (state.sleepLog) storage.saveSleepLog(state.sleepLog);
-
-        const otherWorkouts = storage
-          .getWorkoutHistory(365)
-          .filter((w) => w.date !== today);
-        storage.replaceWorkouts([...otherWorkouts, ...state.todayWorkouts]);
-
-        for (const metric of state.bodyMetrics) {
-          storage.saveBodyMetric(metric);
-        }
-
-        if (state.moodLog) storage.saveMoodLog(state.moodLog);
-
-        for (const entry of state.journalEntries) {
-          storage.saveJournalEntry(entry);
-        }
-
-        if (state.todayGratitude) {
-          storage.saveGratitudeEntry(state.todayGratitude);
-        }
-
-        if (state.stepLog) storage.saveStepLog(state.stepLog);
-
-        storage.saveNotificationConfig(state.notificationConfig);
-        storage.saveAppPreferences(state.appPreferences);
-      },
-    })),
-    {
-      name: "dayos-critical-state",
-      storage: createJSONStorage(() => mmkvStorage),
-      partialize: (state) => ({
-        profile: state.profile,
-        aiConfig: state.aiConfig,
-        isOnboarded: state.isOnboarded,
-        waterConfig: state.waterConfig,
-        focusConfig: state.focusConfig,
-        notificationConfig: state.notificationConfig,
-        appPreferences: state.appPreferences,
-      }),
-    }
-  )
+      await Promise.all(saves);
+    },
+  }))
 );

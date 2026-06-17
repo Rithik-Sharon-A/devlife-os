@@ -1,11 +1,10 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
-import { MMKV } from "react-native-mmkv";
 
 import { useAppStore } from "../store/useAppStore";
 import type { NotificationConfig } from "../types";
 
-const SCHEDULED_IDS_KEY = "scheduled_notification_ids";
-const notificationMmkv = new MMKV({ id: "dayos-notifications" });
+const SCHEDULED_IDS_KEY = "dayos:notif:scheduled-ids";
 
 type NotificationCategory = "water" | "meal" | "evening" | "morning" | "focus";
 
@@ -25,9 +24,9 @@ const EMPTY_IDS: StoredNotificationIds = {
   focus: [],
 };
 
-function loadScheduledIds(): StoredNotificationIds {
+async function loadScheduledIds(): Promise<StoredNotificationIds> {
   try {
-    const raw = notificationMmkv.getString(SCHEDULED_IDS_KEY);
+    const raw = await AsyncStorage.getItem(SCHEDULED_IDS_KEY);
     if (!raw) return { ...EMPTY_IDS };
     return { ...EMPTY_IDS, ...JSON.parse(raw) };
   } catch {
@@ -36,11 +35,7 @@ function loadScheduledIds(): StoredNotificationIds {
 }
 
 function saveScheduledIds(ids: StoredNotificationIds): void {
-  try {
-    notificationMmkv.set(SCHEDULED_IDS_KEY, JSON.stringify(ids));
-  } catch {
-    // ignore
-  }
+  void AsyncStorage.setItem(SCHEDULED_IDS_KEY, JSON.stringify(ids));
 }
 
 function parseTime(time: string): { hour: number; minute: number } {
@@ -52,7 +47,7 @@ function parseTime(time: string): { hour: number; minute: number } {
 }
 
 async function cancelCategory(category: NotificationCategory): Promise<void> {
-  const ids = loadScheduledIds();
+  const ids = await loadScheduledIds();
   await Promise.all(
     ids[category].map((id) => Notifications.cancelScheduledNotificationAsync(id))
   );
@@ -73,6 +68,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
   return result.granted;
 }
 
+
 async function scheduleWaterReminder(times: string[]): Promise<void> {
   await cancelCategory("water");
   if (isWaterGoalMet()) return;
@@ -80,7 +76,7 @@ async function scheduleWaterReminder(times: string[]): Promise<void> {
   const granted = await requestNotificationPermission();
   if (!granted) return;
 
-  const ids = loadScheduledIds();
+  const ids = await loadScheduledIds();
   for (const time of times) {
     const { hour, minute } = parseTime(time);
     const id = await Notifications.scheduleNotificationAsync({
@@ -105,7 +101,7 @@ async function scheduleMealReminders(
   const granted = await requestNotificationPermission();
   if (!granted) return;
 
-  const ids = loadScheduledIds();
+  const ids = await loadScheduledIds();
   const meals: Array<{ time: string; title: string; body: string }> = [
     {
       time: config.breakfastTime,
@@ -141,7 +137,7 @@ async function scheduleEveningCheckin(time: string): Promise<void> {
   if (!granted) return;
 
   const { hour, minute } = parseTime(time);
-  const ids = loadScheduledIds();
+  const ids = await loadScheduledIds();
   const id = await Notifications.scheduleNotificationAsync({
     content: {
       title: "Evening check-in 🌙",
@@ -160,7 +156,7 @@ async function scheduleMorningBriefing(time: string): Promise<void> {
   if (!granted) return;
 
   const { hour, minute } = parseTime(time);
-  const ids = loadScheduledIds();
+  const ids = await loadScheduledIds();
   const id = await Notifications.scheduleNotificationAsync({
     content: {
       title: "Good morning ☀️",
@@ -179,7 +175,7 @@ async function scheduleFocusReminder(time: string): Promise<void> {
   if (!granted) return;
 
   const { hour, minute } = parseTime(time);
-  const ids = loadScheduledIds();
+  const ids = await loadScheduledIds();
   const id = await Notifications.scheduleNotificationAsync({
     content: {
       title: "Focus block 🎯",

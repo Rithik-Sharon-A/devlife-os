@@ -1,5 +1,5 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useMemo } from "react";
-import { MMKV } from "react-native-mmkv";
 
 import {
   chatPrompt,
@@ -31,9 +31,7 @@ import { calculateDayScore } from "../utils/tdee";
 const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_TOKENS = 500;
 const MORNING_NUDGE_TTL_MS = 60 * 60 * 1000;
-const MORNING_NUDGE_CACHE_KEY = "ai_morning_nudge_cache";
-
-const cacheMmkv = new MMKV({ id: "dayos-ai-cache" });
+const MORNING_NUDGE_CACHE_KEY = "dayos:ai:morning-nudge";
 
 interface MorningNudgeCache {
   text: string;
@@ -142,9 +140,9 @@ async function fetchWithRetry(
   }
 }
 
-function getCachedMorningNudge(): string | null {
+async function getCachedMorningNudge(): Promise<string | null> {
   try {
-    const raw = cacheMmkv.getString(MORNING_NUDGE_CACHE_KEY);
+    const raw = await AsyncStorage.getItem(MORNING_NUDGE_CACHE_KEY);
     if (!raw) return null;
 
     const cached = JSON.parse(raw) as MorningNudgeCache;
@@ -159,16 +157,12 @@ function getCachedMorningNudge(): string | null {
 }
 
 function setCachedMorningNudge(text: string): void {
-  try {
-    const payload: MorningNudgeCache = {
-      text,
-      cachedAt: Date.now(),
-      date: getTodayString(),
-    };
-    cacheMmkv.set(MORNING_NUDGE_CACHE_KEY, JSON.stringify(payload));
-  } catch {
-    // ignore cache write failures
-  }
+  const payload: MorningNudgeCache = {
+    text,
+    cachedAt: Date.now(),
+    date: getTodayString(),
+  };
+  void AsyncStorage.setItem(MORNING_NUDGE_CACHE_KEY, JSON.stringify(payload));
 }
 
 function parseNumberedInsights(text: string): string[] {
@@ -186,20 +180,21 @@ function parseNumberedInsights(text: string): string[] {
   return [text.trim()];
 }
 
-function buildWeeklyContexts(
+async function buildWeeklyContexts(
   profile: UserProfile,
   todayContext: DailyContext
-): DailyContext[] {
-  return getLast7Days().map((date) => {
-    if (date === getTodayString()) return todayContext;
+): Promise<DailyContext[]> {
+  const contexts: DailyContext[] = [];
 
-    const food = storage.getFoodLog(date) ?? emptyFoodLog(date);
-    const sleep = storage.getSleepLog(date) ?? undefined;
-    const mood = storage.getMoodLog(date) ?? undefined;
-    const steps =
-      date === getTodayString()
-        ? (storage.getTodaySteps() ?? undefined)
-        : undefined;
+  for (const date of getLast7Days()) {
+    if (date === getTodayString()) {
+      contexts.push(todayContext);
+      continue;
+    }
+
+    const food = (await storage.getFoodLog(date)) ?? emptyFoodLog(date);
+    const sleep = (await storage.getSleepLog(date)) ?? undefined;
+    const mood = (await storage.getMoodLog(date)) ?? undefined;
 
     const context: DailyContext = {
       profile,
@@ -216,7 +211,6 @@ function buildWeeklyContexts(
       focus: { sessionsCompleted: 0, totalMinutes: 0 },
       sleep,
       mood,
-      steps,
       dayScore: {
         tasksPercent: 0,
         caloriesPercent: 0,
@@ -227,8 +221,10 @@ function buildWeeklyContexts(
     };
 
     context.dayScore = calculateDayScore(context);
-    return context;
-  });
+    contexts.push(context);
+  }
+
+  return contexts;
 }
 
 function parseFoodEstimate(
@@ -389,7 +385,7 @@ export function useAI() {
   );
 
   const getMorningNudge = useCallback(async (): Promise<string> => {
-    const cached = getCachedMorningNudge();
+    const cached = await getCachedMorningNudge();
     if (cached) return cached;
 
     try {
@@ -487,7 +483,7 @@ export function useAI() {
   const getWeeklyInsights = useCallback(async (): Promise<string[]> => {
     try {
       const todayContext = requireContext();
-      const weekData = buildWeeklyContexts(
+      const weekData = await buildWeeklyContexts(
         todayContext.profile,
         todayContext
       );

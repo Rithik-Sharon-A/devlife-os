@@ -1,10 +1,11 @@
 import "react-native-gesture-handler";
 import "../global.css";
 
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AppBootstrap } from "../components/AppBootstrap";
@@ -22,9 +23,22 @@ function DayRolloverWatcher() {
   return null;
 }
 
+function LoadingScreen() {
+  return (
+    <View style={styles.loading}>
+      <Text style={styles.loadingTitle}>DayOS</Text>
+      <Text style={styles.loadingSubtitle}>Loading your day...</Text>
+      <ActivityIndicator size="large" color="#7c6aff" style={styles.spinner} />
+    </View>
+  );
+}
+
 export default function RootLayout() {
   const initializeStore = useAppStore((state) => state.initializeStore);
   const isStoreInitialized = useAppStore((state) => state.isStoreInitialized);
+  const isLoading = useAppStore((state) => state.isLoading);
+  const isOnboarded = useAppStore((state) => state.isOnboarded);
+  const router = useRouter();
 
   const [splashMounted, setSplashMounted] = useState(true);
 
@@ -32,7 +46,21 @@ export default function RootLayout() {
     void initializeStore();
   }, [initializeStore]);
 
+  useEffect(() => {
+    if (!isStoreInitialized) return;
+    if (isOnboarded) {
+      router.replace("/(tabs)");
+    } else {
+      router.replace("/onboarding");
+    }
+  }, [isStoreInitialized, isOnboarded, router]);
+
+  if (isLoading && !isStoreInitialized) {
+    return <LoadingScreen />;
+  }
+
   return (
+    <GestureHandlerRootView style={styles.root}>
     <SafeAreaProvider>
       <ToastProvider>
         <View style={styles.root}>
@@ -59,6 +87,7 @@ export default function RootLayout() {
         </View>
       </ToastProvider>
     </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -66,5 +95,25 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: "#0d0f12",
+  },
+  loading: {
+    flex: 1,
+    backgroundColor: "#0d0f12",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingTitle: {
+    fontSize: 40,
+    fontWeight: "700",
+    color: "#ffffff",
+    letterSpacing: 2,
+  },
+  loadingSubtitle: {
+    fontSize: 16,
+    color: "#64748b",
+    marginTop: 8,
+  },
+  spinner: {
+    marginTop: 32,
   },
 });

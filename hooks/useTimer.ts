@@ -1,14 +1,12 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, type AppStateStatus } from "react-native";
-import { MMKV } from "react-native-mmkv";
 
 import { useAppStore } from "../store/useAppStore";
 import type { FocusSessionType } from "../types";
 
-const TIMER_STORAGE_KEY = "pomodoro_timer_state";
-
-const timerMmkv = new MMKV({ id: "dayos-timer" });
+const TIMER_STORAGE_KEY = "dayos:timer:state";
 
 interface PersistedTimerState {
   secondsLeft: number;
@@ -20,9 +18,9 @@ interface PersistedTimerState {
   taskId?: string;
 }
 
-function loadPersistedState(): PersistedTimerState | null {
+async function loadPersistedState(): Promise<PersistedTimerState | null> {
   try {
-    const raw = timerMmkv.getString(TIMER_STORAGE_KEY);
+    const raw = await AsyncStorage.getItem(TIMER_STORAGE_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as PersistedTimerState;
   } catch {
@@ -31,19 +29,11 @@ function loadPersistedState(): PersistedTimerState | null {
 }
 
 function savePersistedState(state: PersistedTimerState): void {
-  try {
-    timerMmkv.set(TIMER_STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // ignore persistence errors
-  }
+  void AsyncStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(state));
 }
 
 function clearPersistedState(): void {
-  try {
-    timerMmkv.delete(TIMER_STORAGE_KEY);
-  } catch {
-    // ignore
-  }
+  void AsyncStorage.removeItem(TIMER_STORAGE_KEY);
 }
 
 function sessionDurationSeconds(
@@ -74,27 +64,26 @@ export function useTimer(
   const taskIdRef = useRef(taskId);
   taskIdRef.current = taskId;
 
-  const [secondsLeft, setSecondsLeft] = useState(() => {
-    const saved = loadPersistedState();
-    if (saved) return saved.secondsLeft;
-    return focusConfig.workMinutes * 60;
-  });
+  const [secondsLeft, setSecondsLeft] = useState(focusConfig.workMinutes * 60);
+  const [isRunning, setIsRunning] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [sessionType, setSessionType] = useState<FocusSessionType>("work");
+  const [sessionNumber, setSessionNumber] = useState(1);
 
-  const [isRunning, setIsRunning] = useState(() => {
-    return loadPersistedState()?.isRunning ?? false;
-  });
-
-  const [isPaused, setIsPaused] = useState(() => {
-    return loadPersistedState()?.isPaused ?? false;
-  });
-
-  const [sessionType, setSessionType] = useState<FocusSessionType>(() => {
-    return loadPersistedState()?.sessionType ?? "work";
-  });
-
-  const [sessionNumber, setSessionNumber] = useState(() => {
-    return loadPersistedState()?.sessionNumber ?? 1;
-  });
+  // Restore persisted timer state on mount
+  useEffect(() => {
+    let cancelled = false;
+    void loadPersistedState().then((saved) => {
+      if (!saved || cancelled) return;
+      setSecondsLeft(saved.secondsLeft);
+      setIsRunning(saved.isRunning);
+      setIsPaused(saved.isPaused);
+      setSessionType(saved.sessionType);
+      setSessionNumber(saved.sessionNumber);
+    });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const persistSnapshot = useCallback(
     (
@@ -372,8 +361,8 @@ export function useTimer(
 
       if (nextState !== "active") return;
 
-      const saved = loadPersistedState();
-      if (!saved || !saved.isRunning || saved.isPaused) return;
+      void loadPersistedState().then((saved) => {
+        if (!saved || !saved.isRunning || saved.isPaused) return;
 
       const elapsed = Math.floor((Date.now() - saved.savedAt) / 1000);
       if (elapsed <= 0) return;
@@ -416,6 +405,7 @@ export function useTimer(
         isPaused: false,
         sessionType: type,
         sessionNumber: number,
+      });
       });
     };
 

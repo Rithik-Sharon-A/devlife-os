@@ -17,9 +17,7 @@ Notifications.setNotificationHandler({
 });
 
 export function useNotifications() {
-  const saveNotificationConfig = useAppStore(
-    (state) => state.notificationConfig
-  );
+  const notificationConfig = useAppStore((state) => state.notificationConfig);
   const setNotificationConfigInStore = useAppStore(
     (state) => state.setNotificationConfig
   );
@@ -32,7 +30,7 @@ export function useNotifications() {
   const updateFromConfig = useCallback(
     async (config: NotificationConfig): Promise<void> => {
       setNotificationConfigInStore(config);
-      useAppStore.getState().persistAll?.();
+      void useAppStore.getState().persistAll?.();
       await scheduleNotificationsFromConfig(config);
     },
     [setNotificationConfigInStore]
@@ -52,6 +50,6 @@ export function useNotifications() {
     cancelAll,
     updateFromConfig,
     refreshWaterReminders,
-    currentConfig: saveNotificationConfig,
+    currentConfig: notificationConfig,
   };
 }

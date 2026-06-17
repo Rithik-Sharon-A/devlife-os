@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { shadows } from "../../utils/styles";
+
 import { AIChatSheet } from "../../components/ai/AIChatSheet";
 import { useAppStore } from "../../store/useAppStore";
 import { isAIConfigured } from "../../utils/ai";
@@ -89,11 +91,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#7c6aff",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#7c6aff",
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
+    ...shadows.fab,
     zIndex: 50,
   },
   fabIcon: {

@@ -1,11 +1,12 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { differenceInCalendarDays, format, parseISO, subDays } from "date-fns";
-import { MMKV } from "react-native-mmkv";
 
 import type {
   AIConfig,
   AppPreferences,
   BodyMetricLog,
   DailyFoodLog,
+  FocusConfig,
   FocusSession,
   GratitudeEntry,
   Habit,
@@ -18,6 +19,7 @@ import type {
   StepLog,
   Task,
   UserProfile,
+  WaterConfig,
   WaterLog,
   WorkoutLog,
 } from "../types";
@@ -31,31 +33,33 @@ import {
 } from "./date";
 import { DEFAULT_HABIT_TEMPLATES } from "../data/defaultHabits";
 
-// ─── MMKV instance ────────────────────────────────────────────────────────────
-
-const mmkv = new MMKV({ id: "dayos" });
+// ─── Keys ─────────────────────────────────────────────────────────────────────
 
 const KEYS = {
-  USER_PROFILE: "userProfile",
-  AI_CONFIG: "aiConfig",
-  FOOD_LOGS: "foodLogs",
-  WATER_LOGS: "waterLogs",
-  TASKS: "tasks",
-  HABITS: "habits",
-  HABIT_LOGS: "habitLogs",
-  SLEEP_LOGS: "sleepLogs",
-  WORKOUT_LOGS: "workoutLogs",
-  BODY_METRICS: "bodyMetrics",
-  MOOD_LOGS: "moodLogs",
-  JOURNAL_ENTRIES: "journalEntries",
-  GRATITUDE_ENTRIES: "gratitudeEntries",
-  FOCUS_SESSIONS: "focusSessions",
-  STEP_LOGS: "stepLogs",
-  NOTIFICATION_CONFIG: "notificationConfig",
-  APP_PREFERENCES: "appPreferences",
+  USER_PROFILE:       "dayos:profile",
+  AI_CONFIG:          "dayos:aiconfig",
+  FOOD_LOGS:          "dayos:food",
+  WATER_LOGS:         "dayos:water",
+  TASKS:              "dayos:tasks",
+  HABITS:             "dayos:habits",
+  HABIT_LOGS:         "dayos:habitlogs",
+  SLEEP_LOGS:         "dayos:sleep",
+  WORKOUT_LOGS:       "dayos:workouts",
+  BODY_METRICS:       "dayos:metrics",
+  MOOD_LOGS:          "dayos:mood",
+  JOURNAL_ENTRIES:    "dayos:journal",
+  GRATITUDE_ENTRIES:  "dayos:gratitude",
+  FOCUS_SESSIONS:     "dayos:focus",
+  STEP_LOGS:          "dayos:steps",
+  NOTIFICATION_CONFIG:"dayos:notifications",
+  APP_PREFERENCES:    "dayos:appprefs",
+  WATER_CONFIG:       "dayos:waterconfig",
+  FOCUS_CONFIG:       "dayos:focusconfig",
 } as const;
 
-const DEFAULT_NOTIFICATION_CONFIG: NotificationConfig = {
+// ─── Defaults ─────────────────────────────────────────────────────────────────
+
+export const DEFAULT_NOTIFICATION_CONFIG: NotificationConfig = {
   waterReminder: { enabled: true, times: ["10:00", "14:00", "18:00"] },
   mealReminder: {
     enabled: true,
@@ -68,11 +72,34 @@ const DEFAULT_NOTIFICATION_CONFIG: NotificationConfig = {
   morningBriefing: { enabled: true, time: "07:30" },
 };
 
+export const DEFAULT_APP_PREFERENCES: AppPreferences = {
+  weightUnit: "kg",
+  heightUnit: "cm",
+  showStepsOnDashboard: true,
+  manualCalorieOverride: false,
+  manualCalorieGoal: 2000,
+  stepGoal: 8000,
+  lastActiveDate: "",
+  hasSeenMorningBriefing: false,
+};
+
+export const DEFAULT_WATER_CONFIG: WaterConfig = {
+  bottleSizeMl: 500,
+  dailyGoalBottles: 6,
+};
+
+export const DEFAULT_FOCUS_CONFIG: FocusConfig = {
+  workMinutes: 25,
+  breakMinutes: 5,
+  longBreakMinutes: 15,
+  sessionsBeforeLongBreak: 4,
+};
+
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-function getJSON<T>(key: string): T | null {
+async function getJSON<T>(key: string): Promise<T | null> {
   try {
-    const raw = mmkv.getString(key);
+    const raw = await AsyncStorage.getItem(key);
     if (!raw) return null;
     return JSON.parse(raw) as T;
   } catch {
@@ -80,20 +107,20 @@ function getJSON<T>(key: string): T | null {
   }
 }
 
-function setJSON(key: string, value: unknown): void {
+async function setJSON(key: string, value: unknown): Promise<void> {
   try {
-    mmkv.set(key, JSON.stringify(value));
+    await AsyncStorage.setItem(key, JSON.stringify(value));
   } catch {
     // swallow write errors
   }
 }
 
-function getRecord<T>(key: string): Record<string, T> {
-  return getJSON<Record<string, T>>(key) ?? {};
+async function getRecord<T>(key: string): Promise<Record<string, T>> {
+  return (await getJSON<Record<string, T>>(key)) ?? {};
 }
 
-function getArray<T>(key: string): T[] {
-  return getJSON<T[]>(key) ?? [];
+async function getArray<T>(key: string): Promise<T[]> {
+  return (await getJSON<T[]>(key)) ?? [];
 }
 
 function upsertById<T extends { id: string }>(items: T[], item: T): T[] {
@@ -111,47 +138,47 @@ function isWithinLastDays(dateString: string, days: number): boolean {
 
 // ─── User profile ─────────────────────────────────────────────────────────────
 
-export function saveUserProfile(profile: UserProfile): void {
-  setJSON(KEYS.USER_PROFILE, profile);
+export async function saveUserProfile(profile: UserProfile): Promise<void> {
+  await setJSON(KEYS.USER_PROFILE, profile);
 }
 
-export function getUserProfile(): UserProfile | null {
+export async function getUserProfile(): Promise<UserProfile | null> {
   return getJSON<UserProfile>(KEYS.USER_PROFILE);
 }
 
 // ─── AI config ────────────────────────────────────────────────────────────────
 
-export function saveAIConfig(config: AIConfig): void {
-  setJSON(KEYS.AI_CONFIG, config);
+export async function saveAIConfig(config: AIConfig): Promise<void> {
+  await setJSON(KEYS.AI_CONFIG, config);
 }
 
-export function getAIConfig(): AIConfig | null {
+export async function getAIConfig(): Promise<AIConfig | null> {
   return getJSON<AIConfig>(KEYS.AI_CONFIG);
 }
 
 // ─── Food ─────────────────────────────────────────────────────────────────────
 
-export function saveTodayFoodLog(log: DailyFoodLog): void {
-  const logs = getRecord<DailyFoodLog>(KEYS.FOOD_LOGS);
+export async function saveTodayFoodLog(log: DailyFoodLog): Promise<void> {
+  const logs = await getRecord<DailyFoodLog>(KEYS.FOOD_LOGS);
   logs[log.date] = log;
-  setJSON(KEYS.FOOD_LOGS, logs);
+  await setJSON(KEYS.FOOD_LOGS, logs);
 }
 
-export function getFoodLog(date: string): DailyFoodLog | null {
-  const logs = getRecord<DailyFoodLog>(KEYS.FOOD_LOGS);
+export async function getFoodLog(date: string): Promise<DailyFoodLog | null> {
+  const logs = await getRecord<DailyFoodLog>(KEYS.FOOD_LOGS);
   return logs[date] ?? null;
 }
 
-export function getAllFoodLogs(): DailyFoodLog[] {
-  const logs = getRecord<DailyFoodLog>(KEYS.FOOD_LOGS);
+export async function getAllFoodLogs(): Promise<DailyFoodLog[]> {
+  const logs = await getRecord<DailyFoodLog>(KEYS.FOOD_LOGS);
   return Object.values(logs).sort((a, b) => a.date.localeCompare(b.date));
 }
 
 // ─── Water ────────────────────────────────────────────────────────────────────
 
-export function saveWaterLog(log: WaterLog): void {
+export async function saveWaterLog(log: WaterLog): Promise<void> {
   const date = dateFromTimestamp(log.timestamp);
-  const logs = getRecord<WaterLog>(KEYS.WATER_LOGS);
+  const logs = await getRecord<WaterLog>(KEYS.WATER_LOGS);
   const existing = logs[date];
 
   logs[date] = existing
@@ -164,79 +191,75 @@ export function saveWaterLog(log: WaterLog): void {
       }
     : { ...log, id: log.id || date, entries: log.entries ?? [] };
 
-  setJSON(KEYS.WATER_LOGS, logs);
+  await setJSON(KEYS.WATER_LOGS, logs);
 }
 
-export function getTodayWaterLog(): WaterLog | null {
-  const logs = getRecord<WaterLog>(KEYS.WATER_LOGS);
+export async function getTodayWaterLog(): Promise<WaterLog | null> {
+  const logs = await getRecord<WaterLog>(KEYS.WATER_LOGS);
   return logs[getTodayString()] ?? null;
 }
 
-export function setWaterLogForDate(date: string, log: WaterLog): void {
-  const logs = getRecord<WaterLog>(KEYS.WATER_LOGS);
+export async function setWaterLogForDate(date: string, log: WaterLog): Promise<void> {
+  const logs = await getRecord<WaterLog>(KEYS.WATER_LOGS);
   logs[date] = log;
-  setJSON(KEYS.WATER_LOGS, logs);
+  await setJSON(KEYS.WATER_LOGS, logs);
 }
 
-export function deleteWaterLogForDate(date: string): void {
-  const logs = getRecord<WaterLog>(KEYS.WATER_LOGS);
+export async function deleteWaterLogForDate(date: string): Promise<void> {
+  const logs = await getRecord<WaterLog>(KEYS.WATER_LOGS);
   delete logs[date];
-  setJSON(KEYS.WATER_LOGS, logs);
+  await setJSON(KEYS.WATER_LOGS, logs);
 }
 
-export function getAllWaterLogs(): Record<string, WaterLog> {
+export async function getAllWaterLogs(): Promise<Record<string, WaterLog>> {
   return getRecord<WaterLog>(KEYS.WATER_LOGS);
-}
-
-export function replaceTasks(tasks: Task[]): void {
-  setJSON(KEYS.TASKS, tasks);
-}
-
-export function replaceHabits(habits: Habit[]): void {
-  setJSON(KEYS.HABITS, habits);
-}
-
-export function replaceHabitLogs(logs: HabitLog[]): void {
-  setJSON(KEYS.HABIT_LOGS, logs);
 }
 
 // ─── Tasks ────────────────────────────────────────────────────────────────────
 
-export function saveTask(task: Task): void {
-  setJSON(KEYS.TASKS, upsertById(getArray<Task>(KEYS.TASKS), task));
+export async function replaceTasks(tasks: Task[]): Promise<void> {
+  await setJSON(KEYS.TASKS, tasks);
 }
 
-export function getTasks(): Task[] {
+export async function saveTask(task: Task): Promise<void> {
+  const tasks = await getArray<Task>(KEYS.TASKS);
+  await setJSON(KEYS.TASKS, upsertById(tasks, task));
+}
+
+export async function getTasks(): Promise<Task[]> {
   return getArray<Task>(KEYS.TASKS);
 }
 
-export function updateTask(id: string, updates: Partial<Task>): void {
-  const tasks = getArray<Task>(KEYS.TASKS);
+export async function updateTask(id: string, updates: Partial<Task>): Promise<void> {
+  const tasks = await getArray<Task>(KEYS.TASKS);
   const index = tasks.findIndex((t) => t.id === id);
   if (index === -1) return;
   tasks[index] = { ...tasks[index], ...updates };
-  setJSON(KEYS.TASKS, tasks);
+  await setJSON(KEYS.TASKS, tasks);
 }
 
-export function deleteTask(id: string): void {
-  setJSON(
-    KEYS.TASKS,
-    getArray<Task>(KEYS.TASKS).filter((t) => t.id !== id)
-  );
+export async function deleteTask(id: string): Promise<void> {
+  const tasks = await getArray<Task>(KEYS.TASKS);
+  await setJSON(KEYS.TASKS, tasks.filter((t) => t.id !== id));
 }
 
 // ─── Habits ───────────────────────────────────────────────────────────────────
 
-export function saveHabit(habit: Habit): void {
-  setJSON(KEYS.HABITS, upsertById(getArray<Habit>(KEYS.HABITS), habit));
+export async function replaceHabits(habits: Habit[]): Promise<void> {
+  await setJSON(KEYS.HABITS, habits);
 }
 
-export function getHabits(): Habit[] {
+export async function saveHabit(habit: Habit): Promise<void> {
+  const habits = await getArray<Habit>(KEYS.HABITS);
+  await setJSON(KEYS.HABITS, upsertById(habits, habit));
+}
+
+export async function getHabits(): Promise<Habit[]> {
   return getArray<Habit>(KEYS.HABITS);
 }
 
-export function seedDefaultHabitsIfEmpty(): Habit[] {
-  const existing = getHabits();
+export async function seedDefaultHabitsIfEmpty(): Promise<Habit[]> {
+  const existing = await getHabits();
   if (existing.length > 0) return existing;
 
   const seeded: Habit[] = DEFAULT_HABIT_TEMPLATES.slice(0, 5).map((template, index) => ({
@@ -246,12 +269,16 @@ export function seedDefaultHabitsIfEmpty(): Habit[] {
     createdAt: getNowString(),
   }));
 
-  replaceHabits(seeded);
+  await replaceHabits(seeded);
   return seeded;
 }
 
-export function saveHabitLog(log: HabitLog): void {
-  const logs = getArray<HabitLog>(KEYS.HABIT_LOGS);
+export async function replaceHabitLogs(logs: HabitLog[]): Promise<void> {
+  await setJSON(KEYS.HABIT_LOGS, logs);
+}
+
+export async function saveHabitLog(log: HabitLog): Promise<void> {
+  const logs = await getArray<HabitLog>(KEYS.HABIT_LOGS);
   const index = logs.findIndex(
     (l) => l.habitId === log.habitId && l.date === log.date
   );
@@ -262,22 +289,23 @@ export function saveHabitLog(log: HabitLog): void {
     logs[index] = log;
   }
 
-  setJSON(KEYS.HABIT_LOGS, logs);
+  await setJSON(KEYS.HABIT_LOGS, logs);
 }
 
-export function getHabitLogs(habitId: string, days: number): HabitLog[] {
+export async function getHabitLogs(habitId: string, days: number): Promise<HabitLog[]> {
   const cutoff = getLastNDays(days)[0];
-  return getArray<HabitLog>(KEYS.HABIT_LOGS)
+  const logs = await getArray<HabitLog>(KEYS.HABIT_LOGS);
+  return logs
     .filter((l) => l.habitId === habitId && l.date >= cutoff)
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
-export function getAllHabitLogs(): HabitLog[] {
+export async function getAllHabitLogs(): Promise<HabitLog[]> {
   return getArray<HabitLog>(KEYS.HABIT_LOGS);
 }
 
-export function calculateStreak(habitId: string): HabitStreak {
-  const allLogs = getArray<HabitLog>(KEYS.HABIT_LOGS).filter(
+export async function calculateStreak(habitId: string): Promise<HabitStreak> {
+  const allLogs = (await getArray<HabitLog>(KEYS.HABIT_LOGS)).filter(
     (l) => l.habitId === habitId
   );
   const completedDates = new Set(
@@ -315,29 +343,24 @@ export function calculateStreak(habitId: string): HabitStreak {
     prevDate = current;
   }
 
-  return {
-    habitId,
-    currentStreak,
-    longestStreak,
-    last7Days,
-  };
+  return { habitId, currentStreak, longestStreak, last7Days };
 }
 
 // ─── Sleep ────────────────────────────────────────────────────────────────────
 
-export function saveSleepLog(log: SleepLog): void {
-  const logs = getRecord<SleepLog>(KEYS.SLEEP_LOGS);
+export async function saveSleepLog(log: SleepLog): Promise<void> {
+  const logs = await getRecord<SleepLog>(KEYS.SLEEP_LOGS);
   logs[log.date] = log;
-  setJSON(KEYS.SLEEP_LOGS, logs);
+  await setJSON(KEYS.SLEEP_LOGS, logs);
 }
 
-export function getSleepLog(date: string): SleepLog | null {
-  const logs = getRecord<SleepLog>(KEYS.SLEEP_LOGS);
+export async function getSleepLog(date: string): Promise<SleepLog | null> {
+  const logs = await getRecord<SleepLog>(KEYS.SLEEP_LOGS);
   return logs[date] ?? null;
 }
 
-export function getSleepHistory(days: number): SleepLog[] {
-  const logs = getRecord<SleepLog>(KEYS.SLEEP_LOGS);
+export async function getSleepHistory(days: number): Promise<SleepLog[]> {
+  const logs = await getRecord<SleepLog>(KEYS.SLEEP_LOGS);
   return Object.values(logs)
     .filter((l) => isWithinLastDays(l.date, days))
     .sort((a, b) => b.date.localeCompare(a.date));
@@ -345,234 +368,280 @@ export function getSleepHistory(days: number): SleepLog[] {
 
 // ─── Workouts ─────────────────────────────────────────────────────────────────
 
-export function saveWorkoutLog(log: WorkoutLog): void {
-  setJSON(KEYS.WORKOUT_LOGS, upsertById(getArray<WorkoutLog>(KEYS.WORKOUT_LOGS), log));
+export async function saveWorkoutLog(log: WorkoutLog): Promise<void> {
+  const workouts = await getArray<WorkoutLog>(KEYS.WORKOUT_LOGS);
+  await setJSON(KEYS.WORKOUT_LOGS, upsertById(workouts, log));
 }
 
-export function getTodayWorkouts(): WorkoutLog[] {
+export async function getTodayWorkouts(): Promise<WorkoutLog[]> {
   const today = getTodayString();
-  return getArray<WorkoutLog>(KEYS.WORKOUT_LOGS).filter((l) => l.date === today);
+  const workouts = await getArray<WorkoutLog>(KEYS.WORKOUT_LOGS);
+  return workouts.filter((l) => l.date === today);
 }
 
-export function getWorkoutHistory(days: number): WorkoutLog[] {
-  return getArray<WorkoutLog>(KEYS.WORKOUT_LOGS)
+export async function getWorkoutHistory(days: number): Promise<WorkoutLog[]> {
+  const workouts = await getArray<WorkoutLog>(KEYS.WORKOUT_LOGS);
+  return workouts
     .filter((l) => isWithinLastDays(l.date, days))
     .sort((a, b) => b.date.localeCompare(a.date));
 }
 
-export function replaceWorkouts(workouts: WorkoutLog[]): void {
-  setJSON(KEYS.WORKOUT_LOGS, workouts);
+export async function replaceWorkouts(workouts: WorkoutLog[]): Promise<void> {
+  await setJSON(KEYS.WORKOUT_LOGS, workouts);
 }
 
 // ─── Body metrics ─────────────────────────────────────────────────────────────
 
-export function saveBodyMetric(log: BodyMetricLog): void {
-  setJSON(
-    KEYS.BODY_METRICS,
-    upsertById(getArray<BodyMetricLog>(KEYS.BODY_METRICS), log)
-  );
+export async function saveBodyMetric(log: BodyMetricLog): Promise<void> {
+  const metrics = await getArray<BodyMetricLog>(KEYS.BODY_METRICS);
+  await setJSON(KEYS.BODY_METRICS, upsertById(metrics, log));
 }
 
-export function getBodyMetrics(days: number): BodyMetricLog[] {
-  return getArray<BodyMetricLog>(KEYS.BODY_METRICS)
+export async function getBodyMetrics(days: number): Promise<BodyMetricLog[]> {
+  const metrics = await getArray<BodyMetricLog>(KEYS.BODY_METRICS);
+  return metrics
     .filter((l) => isWithinLastDays(l.date, days))
     .sort((a, b) => b.date.localeCompare(a.date));
 }
 
-export function getLatestWeight(): BodyMetricLog | null {
-  const metrics = getArray<BodyMetricLog>(KEYS.BODY_METRICS);
+export async function getLatestWeight(): Promise<BodyMetricLog | null> {
+  const metrics = await getArray<BodyMetricLog>(KEYS.BODY_METRICS);
   if (metrics.length === 0) return null;
   return [...metrics].sort((a, b) => b.date.localeCompare(a.date))[0];
 }
 
 // ─── Mood ─────────────────────────────────────────────────────────────────────
 
-export function saveMoodLog(log: MoodLog): void {
-  const logs = getRecord<MoodLog>(KEYS.MOOD_LOGS);
+export async function saveMoodLog(log: MoodLog): Promise<void> {
+  const logs = await getRecord<MoodLog>(KEYS.MOOD_LOGS);
   logs[log.date] = log;
-  setJSON(KEYS.MOOD_LOGS, logs);
+  await setJSON(KEYS.MOOD_LOGS, logs);
 }
 
-export function getMoodLog(date: string): MoodLog | null {
-  const logs = getRecord<MoodLog>(KEYS.MOOD_LOGS);
+export async function getMoodLog(date: string): Promise<MoodLog | null> {
+  const logs = await getRecord<MoodLog>(KEYS.MOOD_LOGS);
   return logs[date] ?? null;
 }
 
 // ─── Journal ──────────────────────────────────────────────────────────────────
 
-export function saveJournalEntry(entry: JournalEntry): void {
-  setJSON(
-    KEYS.JOURNAL_ENTRIES,
-    upsertById(getArray<JournalEntry>(KEYS.JOURNAL_ENTRIES), entry)
-  );
+export async function saveJournalEntry(entry: JournalEntry): Promise<void> {
+  const entries = await getArray<JournalEntry>(KEYS.JOURNAL_ENTRIES);
+  await setJSON(KEYS.JOURNAL_ENTRIES, upsertById(entries, entry));
 }
 
-export function getJournalEntries(limit: number): JournalEntry[] {
-  return getArray<JournalEntry>(KEYS.JOURNAL_ENTRIES)
+export async function getJournalEntries(limit: number): Promise<JournalEntry[]> {
+  const entries = await getArray<JournalEntry>(KEYS.JOURNAL_ENTRIES);
+  return entries
     .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
     .slice(0, Math.max(0, limit));
 }
 
-export function deleteJournalEntry(id: string): void {
-  setJSON(
-    KEYS.JOURNAL_ENTRIES,
-    getArray<JournalEntry>(KEYS.JOURNAL_ENTRIES).filter((e) => e.id !== id)
-  );
+export async function deleteJournalEntry(id: string): Promise<void> {
+  const entries = await getArray<JournalEntry>(KEYS.JOURNAL_ENTRIES);
+  await setJSON(KEYS.JOURNAL_ENTRIES, entries.filter((e) => e.id !== id));
 }
 
 // ─── Gratitude ────────────────────────────────────────────────────────────────
 
-export function saveGratitudeEntry(entry: GratitudeEntry): void {
-  const logs = getRecord<GratitudeEntry>(KEYS.GRATITUDE_ENTRIES);
+export async function saveGratitudeEntry(entry: GratitudeEntry): Promise<void> {
+  const logs = await getRecord<GratitudeEntry>(KEYS.GRATITUDE_ENTRIES);
   logs[entry.date] = entry;
-  setJSON(KEYS.GRATITUDE_ENTRIES, logs);
+  await setJSON(KEYS.GRATITUDE_ENTRIES, logs);
 }
 
-export function getGratitudeEntry(date: string): GratitudeEntry | null {
-  const logs = getRecord<GratitudeEntry>(KEYS.GRATITUDE_ENTRIES);
+export async function getGratitudeEntry(date: string): Promise<GratitudeEntry | null> {
+  const logs = await getRecord<GratitudeEntry>(KEYS.GRATITUDE_ENTRIES);
   return logs[date] ?? null;
 }
 
-// ─── Focus ────────────────────────────────────────────────────────────────────
+// ─── Focus sessions ───────────────────────────────────────────────────────────
 
-export function saveFocusSession(session: FocusSession): void {
-  setJSON(
-    KEYS.FOCUS_SESSIONS,
-    upsertById(getArray<FocusSession>(KEYS.FOCUS_SESSIONS), session)
-  );
+export async function saveFocusSession(session: FocusSession): Promise<void> {
+  const sessions = await getArray<FocusSession>(KEYS.FOCUS_SESSIONS);
+  await setJSON(KEYS.FOCUS_SESSIONS, upsertById(sessions, session));
 }
 
-export function getTodayFocusSessions(): FocusSession[] {
+export async function getTodayFocusSessions(): Promise<FocusSession[]> {
   const today = getTodayString();
-  return getArray<FocusSession>(KEYS.FOCUS_SESSIONS).filter(
-    (s) => dateFromTimestamp(s.startTime) === today
-  );
+  const sessions = await getArray<FocusSession>(KEYS.FOCUS_SESSIONS);
+  return sessions.filter((s) => dateFromTimestamp(s.startTime) === today);
 }
 
 // ─── Steps ────────────────────────────────────────────────────────────────────
 
-export function saveStepLog(log: StepLog): void {
-  const logs = getRecord<StepLog>(KEYS.STEP_LOGS);
+export async function saveStepLog(log: StepLog): Promise<void> {
+  const logs = await getRecord<StepLog>(KEYS.STEP_LOGS);
   logs[log.date] = log;
-  setJSON(KEYS.STEP_LOGS, logs);
+  await setJSON(KEYS.STEP_LOGS, logs);
 }
 
-export function getTodaySteps(): StepLog | null {
-  const logs = getRecord<StepLog>(KEYS.STEP_LOGS);
+export async function getTodaySteps(): Promise<StepLog | null> {
+  const logs = await getRecord<StepLog>(KEYS.STEP_LOGS);
   return logs[getTodayString()] ?? null;
 }
 
-// ─── Notifications ────────────────────────────────────────────────────────────
+// ─── Notification config ──────────────────────────────────────────────────────
 
-export function saveNotificationConfig(config: NotificationConfig): void {
-  setJSON(KEYS.NOTIFICATION_CONFIG, config);
+export async function saveNotificationConfig(config: NotificationConfig): Promise<void> {
+  await setJSON(KEYS.NOTIFICATION_CONFIG, config);
 }
 
-export function getNotificationConfig(): NotificationConfig {
-  return getJSON<NotificationConfig>(KEYS.NOTIFICATION_CONFIG) ?? DEFAULT_NOTIFICATION_CONFIG;
+export async function getNotificationConfig(): Promise<NotificationConfig> {
+  return (await getJSON<NotificationConfig>(KEYS.NOTIFICATION_CONFIG)) ?? DEFAULT_NOTIFICATION_CONFIG;
 }
 
-const DEFAULT_APP_PREFERENCES: AppPreferences = {
-  weightUnit: "kg",
-  heightUnit: "cm",
-  showStepsOnDashboard: true,
-  manualCalorieOverride: false,
-  manualCalorieGoal: 2000,
-  stepGoal: 8000,
-  lastActiveDate: "",
-  hasSeenMorningBriefing: false,
-};
+// ─── App preferences ──────────────────────────────────────────────────────────
 
-export function getAppPreferences(): AppPreferences {
-  const stored = getJSON<AppPreferences>(KEYS.APP_PREFERENCES);
+export async function getAppPreferences(): Promise<AppPreferences> {
+  const stored = await getJSON<AppPreferences>(KEYS.APP_PREFERENCES);
   return { ...DEFAULT_APP_PREFERENCES, ...stored };
 }
 
-export function saveAppPreferences(prefs: AppPreferences): void {
-  setJSON(KEYS.APP_PREFERENCES, prefs);
+export async function saveAppPreferences(prefs: AppPreferences): Promise<void> {
+  await setJSON(KEYS.APP_PREFERENCES, prefs);
 }
 
-export function resetTodayStorage(date: string): void {
-  deleteWaterLogForDate(date);
-  setJSON(KEYS.FOOD_LOGS, {
-    ...getRecord<DailyFoodLog>(KEYS.FOOD_LOGS),
-    [date]: {
-      date,
-      entries: [],
-      totalCalories: 0,
-      totalProtein: 0,
-      totalCarbs: 0,
-      totalFat: 0,
-    },
-  });
+// ─── Water config ─────────────────────────────────────────────────────────────
 
-  const moodLogs = getRecord<MoodLog>(KEYS.MOOD_LOGS);
+export async function getWaterConfig(): Promise<WaterConfig> {
+  return (await getJSON<WaterConfig>(KEYS.WATER_CONFIG)) ?? DEFAULT_WATER_CONFIG;
+}
+
+export async function saveWaterConfig(config: WaterConfig): Promise<void> {
+  await setJSON(KEYS.WATER_CONFIG, config);
+}
+
+// ─── Focus config ─────────────────────────────────────────────────────────────
+
+export async function getFocusConfig(): Promise<FocusConfig> {
+  return (await getJSON<FocusConfig>(KEYS.FOCUS_CONFIG)) ?? DEFAULT_FOCUS_CONFIG;
+}
+
+export async function saveFocusConfig(config: FocusConfig): Promise<void> {
+  await setJSON(KEYS.FOCUS_CONFIG, config);
+}
+
+// ─── Reset today ──────────────────────────────────────────────────────────────
+
+export async function resetTodayStorage(date: string): Promise<void> {
+  await deleteWaterLogForDate(date);
+
+  const foodLogs = await getRecord<DailyFoodLog>(KEYS.FOOD_LOGS);
+  foodLogs[date] = {
+    date,
+    entries: [],
+    totalCalories: 0,
+    totalProtein: 0,
+    totalCarbs: 0,
+    totalFat: 0,
+  };
+  await setJSON(KEYS.FOOD_LOGS, foodLogs);
+
+  const moodLogs = await getRecord<MoodLog>(KEYS.MOOD_LOGS);
   delete moodLogs[date];
-  setJSON(KEYS.MOOD_LOGS, moodLogs);
+  await setJSON(KEYS.MOOD_LOGS, moodLogs);
 
-  const gratitude = getRecord<GratitudeEntry>(KEYS.GRATITUDE_ENTRIES);
+  const gratitude = await getRecord<GratitudeEntry>(KEYS.GRATITUDE_ENTRIES);
   delete gratitude[date];
-  setJSON(KEYS.GRATITUDE_ENTRIES, gratitude);
+  await setJSON(KEYS.GRATITUDE_ENTRIES, gratitude);
 
-  const sleepLogs = getRecord<SleepLog>(KEYS.SLEEP_LOGS);
+  const sleepLogs = await getRecord<SleepLog>(KEYS.SLEEP_LOGS);
   delete sleepLogs[date];
-  setJSON(KEYS.SLEEP_LOGS, sleepLogs);
+  await setJSON(KEYS.SLEEP_LOGS, sleepLogs);
 
-  const stepLogs = getRecord<StepLog>(KEYS.STEP_LOGS);
+  const stepLogs = await getRecord<StepLog>(KEYS.STEP_LOGS);
   if (stepLogs[date]) {
     stepLogs[date] = { ...stepLogs[date], steps: 0 };
-    setJSON(KEYS.STEP_LOGS, stepLogs);
+    await setJSON(KEYS.STEP_LOGS, stepLogs);
   }
 
-  const focusSessions = getArray<FocusSession>(KEYS.FOCUS_SESSIONS).filter(
-    (s) => dateFromTimestamp(s.startTime) !== date
+  const sessions = await getArray<FocusSession>(KEYS.FOCUS_SESSIONS);
+  await setJSON(
+    KEYS.FOCUS_SESSIONS,
+    sessions.filter((s) => dateFromTimestamp(s.startTime) !== date)
   );
-  setJSON(KEYS.FOCUS_SESSIONS, focusSessions);
 
-  const workouts = getArray<WorkoutLog>(KEYS.WORKOUT_LOGS).filter(
-    (w) => w.date !== date
-  );
-  replaceWorkouts(workouts);
+  const workouts = await getArray<WorkoutLog>(KEYS.WORKOUT_LOGS);
+  await setJSON(KEYS.WORKOUT_LOGS, workouts.filter((w) => w.date !== date));
 
-  const habitLogs = getArray<HabitLog>(KEYS.HABIT_LOGS).filter(
-    (l) => l.date !== date
-  );
-  replaceHabitLogs(habitLogs);
+  const habitLogs = await getArray<HabitLog>(KEYS.HABIT_LOGS);
+  await setJSON(KEYS.HABIT_LOGS, habitLogs.filter((l) => l.date !== date));
 }
 
 // ─── Bulk operations ──────────────────────────────────────────────────────────
 
-export function clearAllData(): void {
+export async function clearAllData(): Promise<void> {
   try {
-    mmkv.clearAll();
+    const keys = await AsyncStorage.getAllKeys();
+    const dayosKeys = keys.filter((k) => k.startsWith("dayos:"));
+    await AsyncStorage.multiRemove(dayosKeys);
   } catch {
     // swallow
   }
 }
 
-export function exportAllData(): string {
-  const data = {
-    userProfile: getUserProfile(),
-    aiConfig: getAIConfig(),
-    foodLogs: getAllFoodLogs(),
-    waterLogs: getRecord<WaterLog>(KEYS.WATER_LOGS),
-    tasks: getTasks(),
-    habits: getHabits(),
-    habitLogs: getArray<HabitLog>(KEYS.HABIT_LOGS),
-    sleepLogs: getRecord<SleepLog>(KEYS.SLEEP_LOGS),
-    workoutLogs: getArray<WorkoutLog>(KEYS.WORKOUT_LOGS),
-    bodyMetrics: getArray<BodyMetricLog>(KEYS.BODY_METRICS),
-    moodLogs: getRecord<MoodLog>(KEYS.MOOD_LOGS),
-    journalEntries: getArray<JournalEntry>(KEYS.JOURNAL_ENTRIES),
-    gratitudeEntries: getRecord<GratitudeEntry>(KEYS.GRATITUDE_ENTRIES),
-    focusSessions: getArray<FocusSession>(KEYS.FOCUS_SESSIONS),
-    stepLogs: getRecord<StepLog>(KEYS.STEP_LOGS),
-    notificationConfig: getNotificationConfig(),
-    exportedAt: new Date().toISOString(),
-  };
-
+export async function exportAllData(): Promise<string> {
   try {
-    return JSON.stringify(data, null, 2);
+    const [
+      userProfile,
+      aiConfig,
+      foodLogs,
+      waterLogs,
+      tasks,
+      habits,
+      habitLogs,
+      sleepLogs,
+      workoutLogs,
+      bodyMetrics,
+      moodLogs,
+      journalEntries,
+      gratitudeEntries,
+      focusSessions,
+      stepLogs,
+      notificationConfig,
+    ] = await Promise.all([
+      getUserProfile(),
+      getAIConfig(),
+      getAllFoodLogs(),
+      getAllWaterLogs(),
+      getTasks(),
+      getHabits(),
+      getAllHabitLogs(),
+      getSleepHistory(365),
+      getWorkoutHistory(365),
+      getBodyMetrics(365),
+      getRecord<MoodLog>(KEYS.MOOD_LOGS),
+      getJournalEntries(1000),
+      getRecord<GratitudeEntry>(KEYS.GRATITUDE_ENTRIES),
+      getTodayFocusSessions(),
+      getRecord<StepLog>(KEYS.STEP_LOGS),
+      getNotificationConfig(),
+    ]);
+
+    return JSON.stringify(
+      {
+        userProfile,
+        aiConfig,
+        foodLogs,
+        waterLogs,
+        tasks,
+        habits,
+        habitLogs,
+        sleepLogs,
+        workoutLogs,
+        bodyMetrics,
+        moodLogs,
+        journalEntries,
+        gratitudeEntries,
+        focusSessions,
+        stepLogs,
+        notificationConfig,
+        exportedAt: new Date().toISOString(),
+      },
+      null,
+      2
+    );
   } catch {
     return "{}";
   }

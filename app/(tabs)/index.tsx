@@ -137,10 +137,14 @@ export default function HomeScreen() {
   const habitsPercent =
     habitsTotal > 0 ? Math.round((habitsCompletedToday / habitsTotal) * 100) : 0;
 
-  const lastNightSleep = useMemo(() => {
-    if (sleepLog) return sleepLog;
+  const [lastNightSleep, setLastNightSleep] = useState(sleepLog);
+  useEffect(() => {
+    if (sleepLog) {
+      setLastNightSleep(sleepLog);
+      return;
+    }
     const yesterday = format(subDays(new Date(), 1), "yyyy-MM-dd");
-    return storage.getSleepLog(yesterday);
+    void storage.getSleepLog(yesterday).then(setLastNightSleep);
   }, [sleepLog]);
 
   const workoutSummary = useMemo(() => {

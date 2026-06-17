@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -53,11 +53,16 @@ export function FocusRing({
 const styles = StyleSheet.create({
   wrap: {
     alignSelf: "center",
-    shadowColor: uiTheme.accent,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.45,
-    shadowRadius: 18,
-    elevation: 7,
+    ...Platform.select({
+      ios: {
+        shadowColor: uiTheme.accent,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.45,
+        shadowRadius: 18,
+      },
+      android: { elevation: 7 },
+      web: { boxShadow: `0 0 18px ${uiTheme.accent}73` },
+    }),
   },
   center: {
     alignItems: "center",

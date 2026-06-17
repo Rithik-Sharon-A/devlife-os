@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import {
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -335,11 +336,16 @@ const styles = StyleSheet.create({
     borderRadius: uiTheme.radiusInput,
     paddingVertical: 18,
     alignItems: "center",
-    shadowColor: uiTheme.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 6,
+    ...Platform.select({
+      ios: {
+        shadowColor: uiTheme.accent,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 12,
+      },
+      android: { elevation: 6 },
+      web: { boxShadow: "0 4px 12px rgba(124,106,255,0.35)" },
+    }),
   },
   primaryBtnText: {
     color: uiTheme.textPrimary,

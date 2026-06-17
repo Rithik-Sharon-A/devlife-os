@@ -202,7 +202,7 @@ export default function SettingsScreen() {
   };
 
   const exportData = async () => {
-    const json = storage.exportAllData();
+    const json = await storage.exportAllData();
     await Share.share({ message: json, title: "dayos-export.json" });
     showToast("Data export ready to share");
   };

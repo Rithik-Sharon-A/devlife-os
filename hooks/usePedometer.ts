@@ -25,23 +25,29 @@ export function usePedometer() {
   const percentage = goalSteps > 0 ? Math.min(100, (steps / goalSteps) * 100) : 0;
 
   const ensurePermission = useCallback(async (): Promise<boolean> => {
-    const available = await isAvailableAsync();
-    setIsAvailable(available);
+    try {
+      const available = await isAvailableAsync();
+      setIsAvailable(available);
 
-    if (!available) {
+      if (!available) {
+        setPermissionGranted(false);
+        return false;
+      }
+
+      let permission = await getPermissionsAsync();
+
+      if (permission.status !== PermissionStatus.GRANTED) {
+        permission = await requestPermissionsAsync();
+      }
+
+      const granted = permission.status === PermissionStatus.GRANTED;
+      setPermissionGranted(granted);
+      return granted;
+    } catch {
+      setIsAvailable(false);
       setPermissionGranted(false);
       return false;
     }
-
-    let permission = await getPermissionsAsync();
-
-    if (permission.status !== PermissionStatus.GRANTED) {
-      permission = await requestPermissionsAsync();
-    }
-
-    const granted = permission.status === PermissionStatus.GRANTED;
-    setPermissionGranted(granted);
-    return granted;
   }, []);
 
   const syncSteps = useCallback(async () => {

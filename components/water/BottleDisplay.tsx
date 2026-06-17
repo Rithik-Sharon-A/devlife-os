@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -137,11 +137,16 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   bottleWrap: {
-    shadowColor: uiTheme.accent,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 3,
+    ...Platform.select({
+      ios: {
+        shadowColor: uiTheme.accent,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+      android: { elevation: 3 },
+      web: { boxShadow: "0 2px 8px rgba(124,106,255,0.15)" },
+    }),
   },
   inner: {
     flex: 1,

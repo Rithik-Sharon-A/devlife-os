@@ -1,6 +1,7 @@
 import { type PropsWithChildren } from "react";
 import { StyleSheet, type StyleProp, type ViewStyle, View } from "react-native";
 
+import { shadows } from "../../utils/styles";
 import { uiTheme } from "./theme";
 
 type CardVariant = "default" | "elevated" | "bordered";
@@ -42,11 +43,7 @@ const styles = StyleSheet.create({
   },
   elevated: {
     backgroundColor: uiTheme.surface2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 4,
+    ...shadows.medium,
   },
   bordered: {
     backgroundColor: uiTheme.surface1,

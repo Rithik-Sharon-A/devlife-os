@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -66,11 +66,11 @@ function entryId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function getFrequentFoods(): FrequentFood[] {
+async function loadFrequentFoods(): Promise<FrequentFood[]> {
   const map = new Map<string, FrequentFood>();
 
   for (const date of getLast7Days()) {
-    const log = storage.getFoodLog(date);
+    const log = await storage.getFoodLog(date);
     if (!log) continue;
 
     for (const entry of log.entries) {
@@ -167,7 +167,10 @@ export default function FoodScreen() {
   const showUnderEatenNudge =
     hour >= 20 && remaining > 500 && !isOverGoal;
 
-  const frequentFoods = useMemo(() => getFrequentFoods(), [todayFoodLog.entries.length]);
+  const [frequentFoods, setFrequentFoods] = useState<FrequentFood[]>([]);
+  useEffect(() => {
+    void loadFrequentFoods().then(setFrequentFoods);
+  }, [todayFoodLog.entries.length]);
 
   const parsedSuggestions = useMemo(
     () => (suggestionText ? parseMealSuggestions(suggestionText) : []),

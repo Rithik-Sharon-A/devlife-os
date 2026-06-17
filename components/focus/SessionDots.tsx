@@ -1,4 +1,4 @@
-import { StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -71,9 +71,15 @@ const styles = StyleSheet.create({
   },
   current: {
     backgroundColor: uiTheme.accent,
-    shadowColor: uiTheme.accent,
-    shadowOpacity: 0.6,
-    shadowRadius: 6,
+    ...Platform.select({
+      ios: {
+        shadowColor: uiTheme.accent,
+        shadowOpacity: 0.6,
+        shadowRadius: 6,
+      },
+      android: {},
+      web: { boxShadow: `0 0 6px ${uiTheme.accent}99` },
+    }),
   },
   empty: {
     backgroundColor: uiTheme.surface2,

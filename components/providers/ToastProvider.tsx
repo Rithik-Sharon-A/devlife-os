@@ -8,6 +8,8 @@ import {
   type PropsWithChildren,
 } from "react";
 import { StyleSheet, Text } from "react-native";
+
+import { shadows } from "../../utils/styles";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -126,11 +128,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
+    ...shadows.toast,
   },
   text: {
     fontWeight: "600",

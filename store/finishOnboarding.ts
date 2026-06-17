@@ -8,14 +8,14 @@ import {
 } from "../utils/notificationScheduler";
 import { useAppStore } from "./useAppStore";
 
-function seedOnboardingHabits(): Habit[] {
+async function seedOnboardingHabits(): Promise<Habit[]> {
   const seeded: Habit[] = DEFAULT_HABIT_TEMPLATES.slice(0, 5).map((template, index) => ({
     ...template,
     id: `default_habit_${index}_${Date.now()}`,
     isActive: true,
     createdAt: getNowString(),
   }));
-  storage.replaceHabits(seeded);
+  await storage.replaceHabits(seeded);
   return seeded;
 }
 
@@ -26,11 +26,11 @@ export async function finishOnboarding(
   const app = useAppStore.getState();
 
   app.setProfile(profile);
-  const habits = seedOnboardingHabits();
+  const habits = await seedOnboardingHabits();
   useAppStore.setState({ habits });
 
   app.setNotificationConfig(notificationConfig);
-  app.persistAll();
+  await app.persistAll();
 
   try {
     await requestNotificationPermission();
