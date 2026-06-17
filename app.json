@@ -1,25 +1,72 @@
 {
   "expo": {
-    "name": "dayos",
+    "name": "DayOS",
     "slug": "dayos",
     "version": "1.0.0",
+    "scheme": "dayos",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0d0f12",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0d0f12"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#0d0f12"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow DayOS to access your camera for food logging."
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Allow DayOS to access your calendar."
+        }
+      ]
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Allow DayOS to access your camera for food logging.",
+        "NSMotionUsageDescription": "Allow DayOS to access motion data for step counting.",
+        "NSHealthShareUsageDescription": "Allow DayOS to read step count data.",
+        "NSHealthUpdateUsageDescription": "Allow DayOS to update health data.",
+        "UIBackgroundModes": ["remote-notification"]
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0d0f12",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.ACTIVITY_RECOGNITION",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.health.READ_STEPS"
+      ]
     },
     "web": {
+      "bundler": "metro",
       "favicon": "./assets/favicon.png"
+    },
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }
