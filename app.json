@@ -12,15 +12,13 @@
       "resizeMode": "contain"
     },
     "assetBundlePatterns": [
-      "**/*"
+      "assets/**/*"
     ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.dayos.app",
       "infoPlist": {
         "NSMotionUsageDescription": "cAI counts your steps using motion sensors",
-        "NSCameraUsageDescription": "cAI uses camera to scan food barcodes",
-        "NSCalendarsUsageDescription": "cAI uses calendar to help plan your day",
         "UIBackgroundModes": [
           "fetch"
         ]
@@ -36,7 +34,6 @@
       "permissions": [
         "android.permission.ACTIVITY_RECOGNITION",
         "android.permission.BODY_SENSORS",
-        "android.permission.CAMERA",
         "android.permission.VIBRATE",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.SCHEDULE_EXACT_ALARM",
@@ -58,7 +55,10 @@
             "compileSdkVersion": 36,
             "targetSdkVersion": 35,
             "minSdkVersion": 26,
-            "buildToolsVersion": "35.0.0"
+            "buildToolsVersion": "35.0.0",
+            "buildArchs": ["arm64-v8a"],
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
           }
         }
       ]
