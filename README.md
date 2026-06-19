@@ -210,3 +210,5 @@ eas build --platform android
 ```
 
 See the [EAS Build docs](https://docs.expo.dev/build/introduction/) for signing and submission.
+#   D a y O S  
+ 
