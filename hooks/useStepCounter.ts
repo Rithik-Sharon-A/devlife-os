@@ -1,281 +1,232 @@
-/**
- * UPGRADE PATH TO NATIVE PEDOMETER:
- *
- * When building dev build or production APK:
- *
- * 1. npm install expo-pedometer
- *
- * 2. Replace the accelerometer subscription with:
- *    import { Pedometer } from 'expo-pedometer';
- *
- *    const { granted } = await Pedometer.requestPermissionsAsync();
- *
- *    const subscription = Pedometer.watchStepCount(result => {
- *      setSteps(result.steps);
- *    });
- *
- * 3. For historical steps:
- *    const end = new Date();
- *    const start = new Date();
- *    start.setHours(0, 0, 0, 0);
- *    const { steps } = await Pedometer.getStepCountAsync(start, end);
- *
- * Native pedometer is MORE ACCURATE because:
- * - Uses dedicated hardware step counter chip
- * - Counts even when app is in background
- * - Filters out non-walking movements
- * - Integrates with phone's health data
- */
-
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Platform } from "react-native";
 
-import { StepDetector } from "../utils/stepDetector";
-
-const STEPS_PREFIX = "dayos:steps:";
 const GOAL_KEY = "dayos:step_goal";
-const SENSITIVITY_KEY = "dayos:step_sensitivity";
+const MANUAL_KEY = "dayos:steps:manual:";
+const SNAPSHOT_KEY = "dayos:steps:snapshot:";
 const DEFAULT_GOAL = 8000;
+const POLL_MS = 30_000;
 
-export type StepSensitivity = "low" | "medium" | "high";
+const getTodayString = () => new Date().toISOString().split("T")[0]!;
 
-const THRESHOLDS: Record<StepSensitivity, number> = {
-  low: 1.35,
-  medium: 1.15,
-  high: 0.95,
-};
-
-const getDateKey = (date: Date = new Date()) =>
-  STEPS_PREFIX + date.toISOString().split("T")[0];
-
-const getTodayString = () => new Date().toISOString().split("T")[0];
-
-export interface StepCounterState {
-  steps: number;
-  goal: number;
-  percentage: number;
-  isAvailable: boolean;
-  isTracking: boolean;
-  isLoading: boolean;
-  error: string | null;
-  todayDate: string;
-  sensitivity: StepSensitivity;
+async function loadPedometer() {
+  return import("expo-pedometer");
 }
 
-export interface StepCounterActions {
-  startTracking: () => Promise<void>;
-  stopTracking: () => void;
-  resetToday: () => Promise<void>;
-  updateGoal: (goal: number) => Promise<void>;
-  updateSensitivity: (level: StepSensitivity) => Promise<void>;
-  getHistoricalSteps: (daysBack: number) => Promise<{ date: string; steps: number }[]>;
-}
-
-export function useStepCounter(): StepCounterState & StepCounterActions {
+export function useStepCounter() {
   const [steps, setSteps] = useState(0);
   const [goal, setGoal] = useState(DEFAULT_GOAL);
   const [isAvailable, setIsAvailable] = useState(false);
-  const [isTracking, setIsTracking] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isManual, setIsManual] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [todayDate, setTodayDate] = useState(getTodayString());
-  const [sensitivity, setSensitivity] = useState<StepSensitivity>("medium");
 
-  const detectorRef = useRef(new StepDetector());
-  const subscriptionRef = useRef<{ remove: () => void } | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stepsRef = useRef(0);
-  const savingRef = useRef(false);
+  const isManualRef = useRef(false);
   const currentDayRef = useRef(getTodayString());
 
   useEffect(() => {
     stepsRef.current = steps;
   }, [steps]);
 
-  const applySensitivity = useCallback((level: StepSensitivity) => {
-    detectorRef.current.setThreshold(THRESHOLDS[level]);
-    setSensitivity(level);
+  useEffect(() => {
+    isManualRef.current = isManual;
+  }, [isManual]);
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
   }, []);
 
-  const saveSteps = async (count: number) => {
-    if (savingRef.current) return;
-    savingRef.current = true;
+  const saveSnapshot = async (date: string, count: number) => {
     try {
-      await AsyncStorage.setItem(getDateKey(), String(count));
-    } catch (e) {
-      console.log("[Steps] Save error:", e);
-    } finally {
-      savingRef.current = false;
+      await AsyncStorage.setItem(SNAPSHOT_KEY + date, count.toString());
+    } catch {
+      // ignore
     }
-  };
-
-  const loadTodaySteps = async (): Promise<number> => {
-    try {
-      const saved = await AsyncStorage.getItem(getDateKey());
-      if (saved !== null) {
-        const count = parseInt(saved, 10);
-        if (!Number.isNaN(count)) return count;
-      }
-    } catch (e) {
-      console.log("[Steps] Load error:", e);
-    }
-    return 0;
   };
 
   const loadGoal = async () => {
     try {
       const saved = await AsyncStorage.getItem(GOAL_KEY);
-      if (saved !== null) {
-        const g = parseInt(saved, 10);
-        if (!Number.isNaN(g) && g > 0) {
-          setGoal(g);
-        }
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!Number.isNaN(parsed) && parsed > 0) setGoal(parsed);
       }
     } catch {
       // ignore
     }
   };
 
-  const loadSensitivity = async () => {
+  const checkManualOverride = async () => {
     try {
-      const saved = await AsyncStorage.getItem(SENSITIVITY_KEY);
-      if (saved === "low" || saved === "medium" || saved === "high") {
-        applySensitivity(saved);
+      const today = getTodayString();
+      const manual = await AsyncStorage.getItem(MANUAL_KEY + today);
+      if (manual !== null) {
+        const count = parseInt(manual, 10);
+        if (!Number.isNaN(count)) {
+          setSteps(count);
+          stepsRef.current = count;
+        }
+        setIsManual(true);
+        return true;
       }
     } catch {
       // ignore
     }
+    return false;
   };
 
-  const checkDayChange = useCallback(() => {
-    const today = getTodayString();
-    if (today !== currentDayRef.current) {
-      currentDayRef.current = today;
-      setTodayDate(today);
-      detectorRef.current.reset();
-      stepsRef.current = 0;
-      setSteps(0);
+  const refreshTodaySteps = useCallback(async () => {
+    try {
+      const { getTodayStepCountAsync } = await loadPedometer();
+      const fresh = await getTodayStepCountAsync();
+      setSteps(fresh);
+      stepsRef.current = fresh;
+      await saveSnapshot(getTodayString(), fresh);
+      return fresh;
+    } catch {
+      return stepsRef.current;
     }
   }, []);
 
-  const startTracking = useCallback(async () => {
+  const startPolling = useCallback(() => {
+    stopPolling();
+    pollRef.current = setInterval(() => {
+      if (!isManualRef.current) {
+        void refreshTodaySteps();
+      }
+    }, POLL_MS);
+  }, [refreshTodaySteps, stopPolling]);
+
+  const startNativePedometer = useCallback(async () => {
     if (Platform.OS === "web") {
-      setError("Step tracking not available on web");
+      setError("Not available on web");
       setIsLoading(false);
       return;
     }
 
     try {
-      const { Accelerometer } = await import("expo-sensors");
+      const { isAvailableAsync, requestPermissionsAsync, getTodayStepCountAsync, PermissionStatus } =
+        await loadPedometer();
 
-      const available = await Accelerometer.isAvailableAsync();
+      const available = await isAvailableAsync();
       setIsAvailable(available);
 
       if (!available) {
-        setError("Accelerometer not available on this device");
+        setError("Step counter not available on this device");
         setIsLoading(false);
         return;
       }
 
-      const savedSteps = await loadTodaySteps();
-      detectorRef.current.setCount(savedSteps);
-      stepsRef.current = savedSteps;
-      setSteps(savedSteps);
+      const permission = await requestPermissionsAsync();
 
-      Accelerometer.setUpdateInterval(100);
-
-      if (subscriptionRef.current) {
-        subscriptionRef.current.remove();
+      if (permission.status !== PermissionStatus.GRANTED) {
+        setError("Step counter permission denied");
+        setIsLoading(false);
+        return;
       }
 
-      subscriptionRef.current = Accelerometer.addListener(({ x, y, z }) => {
-        const today = getTodayString();
-        if (today !== currentDayRef.current) {
-          checkDayChange();
-        }
+      stopPolling();
 
-        const stepDetected = detectorRef.current.processSample(x, y, z);
+      const todaySteps = await getTodayStepCountAsync();
+      setSteps(todaySteps);
+      stepsRef.current = todaySteps;
+      await saveSnapshot(getTodayString(), todaySteps);
 
-        if (stepDetected) {
-          const newCount = detectorRef.current.getCount();
-          stepsRef.current = newCount;
-          setSteps(newCount);
-
-          if (newCount % 20 === 0) {
-            void saveSteps(newCount);
-          }
-        }
-      });
-
-      setIsTracking(true);
+      startPolling();
       setError(null);
+      setIsLoading(false);
     } catch (e) {
-      console.log("[Steps] Error starting:", e);
-      setError("Could not start step tracking");
+      console.log("[Steps] Native pedometer error:", e);
+      setError("Could not access step counter");
       setIsAvailable(false);
-    } finally {
       setIsLoading(false);
     }
-  }, [checkDayChange]);
-
-  const stopTracking = useCallback(() => {
-    if (subscriptionRef.current) {
-      subscriptionRef.current.remove();
-      subscriptionRef.current = null;
-    }
-    setIsTracking(false);
-    void saveSteps(stepsRef.current);
-  }, []);
+  }, [startPolling, stopPolling]);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState === "active") {
-        checkDayChange();
-        if (!subscriptionRef.current) {
-          void startTracking();
+    const init = async () => {
+      await loadGoal();
+
+      const hasManual = await checkManualOverride();
+
+      if (!hasManual) {
+        await startNativePedometer();
+      } else {
+        try {
+          const { isAvailableAsync } = await loadPedometer();
+          const available = await isAvailableAsync();
+          setIsAvailable(available);
+        } catch {
+          setIsAvailable(false);
         }
-      } else if (nextState === "background" || nextState === "inactive") {
-        void saveSteps(stepsRef.current);
+        setIsLoading(false);
+      }
+    };
+
+    void init();
+
+    const appStateSub = AppState.addEventListener("change", (state) => {
+      if (state !== "active") return;
+
+      const today = getTodayString();
+      if (today !== currentDayRef.current) {
+        currentDayRef.current = today;
+        setIsManual(false);
+        isManualRef.current = false;
+        void startNativePedometer();
+        return;
+      }
+
+      if (!isManualRef.current) {
+        void refreshTodaySteps();
       }
     });
 
-    return () => subscription.remove();
-  }, [checkDayChange, startTracking]);
-
-  useEffect(() => {
-    void loadGoal();
-    void loadSensitivity();
-    void startTracking();
-
-    const interval = setInterval(checkDayChange, 60_000);
-
     return () => {
-      clearInterval(interval);
-      stopTracking();
+      appStateSub.remove();
+      stopPolling();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [refreshTodaySteps, startNativePedometer, stopPolling]);
 
-  const resetToday = async () => {
-    detectorRef.current.reset();
-    stepsRef.current = 0;
-    setSteps(0);
-    await saveSteps(0);
-  };
-
-  const updateGoal = async (newGoal: number) => {
-    setGoal(newGoal);
+  const setManualSteps = async (count: number) => {
+    const safe = Math.max(0, Math.floor(count));
+    const today = getTodayString();
+    stopPolling();
+    setSteps(safe);
+    stepsRef.current = safe;
+    setIsManual(true);
+    isManualRef.current = true;
     try {
-      await AsyncStorage.setItem(GOAL_KEY, String(newGoal));
+      await AsyncStorage.setItem(MANUAL_KEY + today, safe.toString());
+      await saveSnapshot(today, safe);
     } catch {
       // ignore
     }
   };
 
-  const updateSensitivity = async (level: StepSensitivity) => {
-    applySensitivity(level);
+  const clearManualOverride = async () => {
+    const today = getTodayString();
+    setIsManual(false);
+    isManualRef.current = false;
     try {
-      await AsyncStorage.setItem(SENSITIVITY_KEY, level);
+      await AsyncStorage.removeItem(MANUAL_KEY + today);
+    } catch {
+      // ignore
+    }
+    setIsLoading(true);
+    await startNativePedometer();
+  };
+
+  const updateGoal = async (newGoal: number) => {
+    setGoal(newGoal);
+    try {
+      await AsyncStorage.setItem(GOAL_KEY, newGoal.toString());
     } catch {
       // ignore
     }
@@ -284,23 +235,60 @@ export function useStepCounter(): StepCounterState & StepCounterActions {
   const getHistoricalSteps = async (
     daysBack: number
   ): Promise<{ date: string; steps: number }[]> => {
-    const result: { date: string; steps: number }[] = [];
+    const results: { date: string; steps: number }[] = [];
+    const today = getTodayString();
+
+    let canReadToday = false;
+    try {
+      const { isAvailableAsync } = await loadPedometer();
+      canReadToday = await isAvailableAsync();
+    } catch {
+      // ignore
+    }
+
     for (let i = 0; i < daysBack; i++) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const key = getDateKey(date);
-      const dateStr = date.toISOString().split("T")[0]!;
+      const start = new Date();
+      start.setDate(start.getDate() - i);
+      start.setHours(0, 0, 0, 0);
+      const dateStr = start.toISOString().split("T")[0]!;
+
+      if (i === 0) {
+        try {
+          const manual = await AsyncStorage.getItem(MANUAL_KEY + today);
+          if (manual !== null) {
+            results.push({ date: dateStr, steps: parseInt(manual, 10) || 0 });
+            continue;
+          }
+        } catch {
+          // fall through
+        }
+
+        if (canReadToday) {
+          try {
+            const { getTodayStepCountAsync } = await loadPedometer();
+            const daySteps = await getTodayStepCountAsync();
+            results.push({ date: dateStr, steps: daySteps });
+            await saveSnapshot(dateStr, daySteps);
+            continue;
+          } catch {
+            // fall through
+          }
+        }
+      }
+
       try {
-        const saved = await AsyncStorage.getItem(key);
-        result.push({
-          date: dateStr,
-          steps: saved ? parseInt(saved, 10) : 0,
-        });
+        const snap = await AsyncStorage.getItem(SNAPSHOT_KEY + dateStr);
+        if (snap !== null) {
+          results.push({ date: dateStr, steps: parseInt(snap, 10) || 0 });
+        } else {
+          results.push({ date: dateStr, steps: 0 });
+        }
       } catch {
-        result.push({ date: dateStr, steps: 0 });
+        results.push({ date: dateStr, steps: 0 });
       }
     }
-    return result;
+
+    return results;
   };
 
   const percentage = Math.min(100, goal > 0 ? Math.round((steps / goal) * 100) : 0);
@@ -310,16 +298,12 @@ export function useStepCounter(): StepCounterState & StepCounterActions {
     goal,
     percentage,
     isAvailable,
-    isTracking,
     isLoading,
+    isManual,
     error,
-    todayDate,
-    sensitivity,
-    startTracking,
-    stopTracking,
-    resetToday,
+    setManualSteps,
+    clearManualOverride,
     updateGoal,
-    updateSensitivity,
     getHistoricalSteps,
   };
 }

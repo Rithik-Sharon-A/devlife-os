@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 
@@ -713,6 +714,13 @@ export const useAppStore = create<AppStore>()(
         state.todayWorkouts.push(log);
       });
       void storage.saveWorkoutLog(log);
+
+      void AsyncStorage.getItem("dayos:first_workout_done").then((done) => {
+        if (!done) {
+          get().celebrationCallback?.("first_workout");
+          void AsyncStorage.setItem("dayos:first_workout_done", "1");
+        }
+      });
     },
 
     deleteWorkout: (workoutId) => {

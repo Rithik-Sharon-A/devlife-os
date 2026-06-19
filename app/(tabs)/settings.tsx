@@ -28,7 +28,7 @@ import { Input } from "../../components/ui/Input";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { uiTheme } from "../../components/ui/theme";
 import { findProviderModel, PROVIDERS } from "../../data/providers";
-import { useStepCounter, type StepSensitivity } from "../../hooks/useStepCounter";
+import { useStepCounter } from "../../hooks/useStepCounter";
 import { useToast } from "../../hooks/useToast";
 import { useAppStore } from "../../store/useAppStore";
 import type {
@@ -72,10 +72,6 @@ type SheetKind =
   | "calorieOverride"
   | "bottleSize"
   | "waterGoal"
-  | "focusWork"
-  | "focusBreak"
-  | "focusSessions"
-  | "focusLongBreak"
   | "stepGoal"
   | "provider"
   | "model"
@@ -95,7 +91,6 @@ function getInitials(name: string): string {
 export default function SettingsScreen() {
   const profile = useAppStore((s) => s.profile);
   const waterConfig = useAppStore((s) => s.waterConfig);
-  const focusConfig = useAppStore((s) => s.focusConfig);
   const aiConfig = useAppStore((s) => s.aiConfig);
   const appPreferences = useAppStore((s) => s.appPreferences);
   const notificationConfig = useAppStore((s) => s.notificationConfig);
@@ -103,7 +98,6 @@ export default function SettingsScreen() {
   const updateProfile = useAppStore((s) => s.updateProfile);
   const logWeight = useAppStore((s) => s.logWeight);
   const updateWaterConfig = useAppStore((s) => s.updateWaterConfig);
-  const updateFocusConfig = useAppStore((s) => s.updateFocusConfig);
   const updateAppPreferences = useAppStore((s) => s.updateAppPreferences);
   const updateStepGoal = useAppStore((s) => s.updateStepGoal);
   const setNotificationConfig = useAppStore((s) => s.setNotificationConfig);
@@ -117,8 +111,6 @@ export default function SettingsScreen() {
   const {
     goal: stepCounterGoal,
     updateGoal: updateStepCounterGoal,
-    sensitivity: stepSensitivity,
-    updateSensitivity,
   } = useStepCounter();
 
   const [sheet, setSheet] = useState<SheetKind>(null);
@@ -381,32 +373,6 @@ export default function SettingsScreen() {
           />
         </SettingsSection>
 
-        <SettingsSection title="Focus Timer">
-          <SettingsRow
-            label="Work Session"
-            value={`${focusConfig.workMinutes} min`}
-            onPress={() => openSheet("focusWork", String(focusConfig.workMinutes))}
-          />
-          <SettingsRow
-            label="Break"
-            value={`${focusConfig.breakMinutes} min`}
-            onPress={() => openSheet("focusBreak", String(focusConfig.breakMinutes))}
-          />
-          <SettingsRow
-            label="Sessions before long break"
-            value={String(focusConfig.sessionsBeforeLongBreak)}
-            onPress={() =>
-              openSheet("focusSessions", String(focusConfig.sessionsBeforeLongBreak))
-            }
-          />
-          <SettingsRow
-            label="Long break"
-            value={`${focusConfig.longBreakMinutes} min`}
-            onPress={() => openSheet("focusLongBreak", String(focusConfig.longBreakMinutes))}
-            isLast
-          />
-        </SettingsSection>
-
         <SettingsSection title="Health">
           <SettingsRow
             label="Daily step goal"
@@ -415,28 +381,9 @@ export default function SettingsScreen() {
               openSheet("stepGoal", String(stepCounterGoal || appPreferences.stepGoal))
             }
           />
-          <View style={styles.sensitivityBlock}>
-            <Text style={styles.sensitivityLabel}>Step detection sensitivity</Text>
-            <SegmentedControl
-              options={["Low", "Medium", "High"]}
-              selected={
-                stepSensitivity === "low"
-                  ? "Low"
-                  : stepSensitivity === "high"
-                    ? "High"
-                    : "Medium"
-              }
-              onChange={(label) => {
-                const level: StepSensitivity =
-                  label === "Low" ? "low" : label === "High" ? "high" : "medium";
-                void updateSensitivity(level);
-                showToast(`Sensitivity set to ${label}`);
-              }}
-            />
-          </View>
           <Text style={styles.stepNote}>
-            Steps counted via accelerometer. Accuracy improves with regular walking.
-            Calibrate sensitivity above if steps seem over or under counted.
+            Steps sync from your phone&apos;s built-in step counter. Grant activity
+            recognition permission on first launch for accurate counts.
           </Text>
           <SettingsToggle
             label="Show steps on dashboard"
@@ -524,29 +471,6 @@ export default function SettingsScreen() {
               />
             </View>
           ) : null}
-          <SettingsToggle
-            label="Focus Reminder"
-            enabled={notifDraft.focusReminder.enabled}
-            onToggle={(enabled) =>
-              setNotifDraft((c) => ({
-                ...c,
-                focusReminder: {
-                  ...c.focusReminder,
-                  enabled,
-                },
-              }))
-            }
-          />
-          <TimePickerField
-            label="Focus reminder time"
-            value={notifDraft.focusReminder.time}
-            onChange={(time) =>
-              setNotifDraft((c) => ({
-                ...c,
-                focusReminder: { ...c.focusReminder, time },
-              }))
-            }
-          />
           <SettingsToggle
             label="Evening Check-in"
             enabled={notifDraft.eveningCheckin.enabled}
@@ -871,28 +795,6 @@ export default function SettingsScreen() {
                   showToast("Water goal saved");
                   closeSheet();
                 }
-              }}
-            />
-          </View>
-        ) : null}
-
-        {["focusWork", "focusBreak", "focusSessions", "focusLongBreak"].includes(
-          sheet ?? ""
-        ) ? (
-          <View style={styles.sheetForm}>
-            <Input label="Minutes" value={editNumber} onChangeText={setEditNumber} placeholder="25" keyboardType="number-pad" />
-            <Button
-              label="Save"
-              onPress={() => {
-                const val = Number(editNumber);
-                if (Number.isNaN(val) || val <= 0) return;
-                if (sheet === "focusWork") updateFocusConfig({ workMinutes: val });
-                if (sheet === "focusBreak") updateFocusConfig({ breakMinutes: val });
-                if (sheet === "focusSessions")
-                  updateFocusConfig({ sessionsBeforeLongBreak: Math.round(val) });
-                if (sheet === "focusLongBreak") updateFocusConfig({ longBreakMinutes: val });
-                showToast("Focus settings saved");
-                closeSheet();
               }}
             />
           </View>

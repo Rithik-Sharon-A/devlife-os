@@ -157,16 +157,28 @@ export const CELEBRATION_CONFIGS: Record<CelebrationType, CelebrationConfig> = {
     dismissLabel: "Keep tracking!",
   },
 
-  first_focus: {
+  first_workout: {
     animation: require("../assets/animations/checkmark.json"),
-    title: "First Focus Session! 🧠",
-    subtitle: "You started.\nThat's always the hardest part.",
+    title: "First Workout Logged! 💪",
+    subtitle: "You started moving.\nThat's always the hardest part.",
     accentColor: "#7c6aff",
     autoCloseDuration: 2000,
     showConfetti: false,
     showShareButton: false,
     size: "small",
-    dismissLabel: "Deep work mode: ON",
+    dismissLabel: "Keep it up!",
+  },
+
+  steps_goal: {
+    animation: require("../assets/animations/stars.json"),
+    title: "Step Goal Hit! 👟",
+    subtitle: "You hit your daily step target.\nKeep the momentum going.",
+    accentColor: "#0ea5e9",
+    autoCloseDuration: 2500,
+    showConfetti: false,
+    showShareButton: false,
+    size: "small",
+    dismissLabel: "Nice walk!",
   },
 
   calorie_goal: {

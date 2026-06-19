@@ -11,15 +11,16 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useCelebrationContext } from "../../components/providers/CelebrationProvider";
-import { BottleDisplay } from "../../components/water/BottleDisplay";
+import WaterBottle, { getBottleFillState } from "../../components/water/WaterBottle";
 import { WaterLogHistory } from "../../components/water/WaterLogHistory";
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
-import { uiTheme } from "../../components/ui/theme";
+import { useTheme } from "../../context/ThemeContext";
 import { useAI } from "../../hooks/useAI";
 import { useAppStore } from "../../store/useAppStore";
+import { radii } from "../../utils/designTokens";
 import { getLast7Days } from "../../utils/date";
 import * as storage from "../../utils/storage";
 
@@ -63,6 +64,8 @@ function expectedBottlesByNow(goalBottles: number, hour: number): number {
 }
 
 export default function WaterScreen() {
+  const { theme } = useTheme();
+  const { colors } = theme;
   const { celebrate } = useCelebrationContext();
   const waterLog = useAppStore((s) => s.waterLog);
   const waterConfig = useAppStore((s) => s.waterConfig);
@@ -197,6 +200,173 @@ export default function WaterScreen() {
     }
   };
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        safe: {
+          flex: 1,
+          backgroundColor: colors.background,
+        },
+        scroll: {
+          flex: 1,
+        },
+        content: {
+          paddingHorizontal: 20,
+          paddingTop: 12,
+          paddingBottom: 32,
+        },
+        headerCard: {
+          alignItems: "center",
+          marginBottom: 20,
+          gap: 6,
+        },
+        headerMain: {
+          color: colors.textPrimary,
+          fontSize: 32,
+          fontWeight: "800",
+          fontVariant: ["tabular-nums"],
+        },
+        headerSub: {
+          color: colors.textSecondary,
+          fontSize: 15,
+          fontVariant: ["tabular-nums"],
+        },
+        headerPercent: {
+          color: colors.accent,
+          fontSize: 14,
+          fontWeight: "700",
+          marginTop: 4,
+        },
+        bottleSection: {
+          marginBottom: 24,
+          paddingVertical: 8,
+        },
+        bottleRow: {
+          flexDirection: "row",
+          flexWrap: "wrap",
+          justifyContent: "center",
+          gap: 12,
+        },
+        logButtons: {
+          gap: 10,
+          marginBottom: 20,
+        },
+        primaryBtn: {
+          backgroundColor: colors.accent,
+          borderRadius: radii.md,
+          paddingVertical: 16,
+          paddingHorizontal: 28,
+          alignItems: "center",
+        },
+        primaryBtnText: {
+          color: "#ffffff",
+          fontWeight: "700",
+          fontSize: 17,
+        },
+        secondaryRow: {
+          flexDirection: "row",
+          gap: 10,
+        },
+        secondaryBtn: {
+          flex: 1,
+          borderWidth: 1,
+          borderColor: colors.border,
+          backgroundColor: colors.surface2,
+          borderRadius: radii.md,
+          paddingVertical: 14,
+          alignItems: "center",
+        },
+        secondaryText: {
+          color: colors.textPrimary,
+          fontWeight: "600",
+          fontSize: 14,
+        },
+        settingsCard: {
+          gap: 14,
+          marginBottom: 16,
+        },
+        settingRow: {
+          gap: 6,
+        },
+        settingLabel: {
+          color: colors.textSecondary,
+          fontSize: 13,
+          fontWeight: "600",
+        },
+        settingValueRow: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+        },
+        settingValue: {
+          color: colors.textPrimary,
+          fontSize: 16,
+          fontWeight: "700",
+        },
+        editLink: {
+          color: colors.accent,
+          fontWeight: "700",
+          fontSize: 14,
+        },
+        inlineEdit: {
+          gap: 8,
+        },
+        nudgeCard: {
+          marginBottom: 16,
+          borderColor: colors.warning,
+        },
+        nudgeTitle: {
+          color: colors.warning,
+          fontWeight: "700",
+          fontSize: 14,
+          marginBottom: 6,
+        },
+        nudgeBody: {
+          color: colors.textPrimary,
+          fontSize: 14,
+          lineHeight: 20,
+        },
+        timelineSection: {
+          marginBottom: 20,
+        },
+        sectionTitle: {
+          color: colors.textPrimary,
+          fontSize: 17,
+          fontWeight: "700",
+          marginBottom: 10,
+        },
+        statsRow: {
+          flexDirection: "row",
+          gap: 8,
+        },
+        statCell: {
+          flex: 1,
+          backgroundColor: colors.surface1,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: radii.lg,
+          padding: 12,
+          alignItems: "center",
+        },
+        statLabel: {
+          color: colors.textSecondary,
+          fontSize: 11,
+          fontWeight: "600",
+          marginBottom: 4,
+        },
+        statValue: {
+          color: colors.textPrimary,
+          fontSize: 13,
+          fontWeight: "700",
+          textAlign: "center",
+        },
+        sheetBtn: {
+          marginTop: 12,
+        },
+      }),
+    [colors]
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView
@@ -207,8 +377,8 @@ export default function WaterScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={uiTheme.accent}
-            colors={[uiTheme.accent]}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
           />
         }
       >
@@ -223,20 +393,27 @@ export default function WaterScreen() {
         </Card>
 
         <View style={styles.bottleSection}>
-          <BottleDisplay
-            consumedBottles={bottlesConsumed}
-            goalBottles={goalBottles}
-            bottleSizeMl={bottleSize}
-            size="lg"
-          />
+          <View style={styles.bottleRow}>
+            {Array.from({ length: Math.max(1, goalBottles) }).map((_, index) => {
+              const { fillPercent } = getBottleFillState(bottlesConsumed, index);
+              return (
+                <WaterBottle
+                  key={index}
+                  fillPercent={fillPercent}
+                  width={70}
+                  height={110}
+                />
+              );
+            })}
+          </View>
         </View>
 
         <View style={styles.logButtons}>
-          <Button
-            label={`+ Full Bottle (${bottleSize}ml)`}
-            onPress={logFull}
-            size="lg"
-          />
+          <Pressable style={styles.primaryBtn} onPress={logFull}>
+            <Text style={styles.primaryBtnText}>
+              + Full Bottle ({bottleSize}ml)
+            </Text>
+          </Pressable>
           <View style={styles.secondaryRow}>
             <Pressable style={styles.secondaryBtn} onPress={logHalf}>
               <Text style={styles.secondaryText}>
@@ -317,15 +494,18 @@ export default function WaterScreen() {
         </View>
 
         <View style={styles.statsRow}>
-          <StatCell
-            label="Avg / day"
-            value={`${stats.avgBottles.toFixed(1)} bottles`}
-          />
-          <StatCell
-            label="Best day"
-            value={`${formatBottles(stats.bestBottles)} bottles`}
-          />
-          <StatCell label="Streak" value={`${stats.streak} days`} />
+          <View style={styles.statCell}>
+            <Text style={styles.statLabel}>Avg / day</Text>
+            <Text style={styles.statValue}>{stats.avgBottles.toFixed(1)} bottles</Text>
+          </View>
+          <View style={styles.statCell}>
+            <Text style={styles.statLabel}>Best day</Text>
+            <Text style={styles.statValue}>{formatBottles(stats.bestBottles)} bottles</Text>
+          </View>
+          <View style={styles.statCell}>
+            <Text style={styles.statLabel}>Streak</Text>
+            <Text style={styles.statValue}>{stats.streak} days</Text>
+          </View>
         </View>
       </ScrollView>
 
@@ -349,157 +529,3 @@ export default function WaterScreen() {
     </SafeAreaView>
   );
 }
-
-function StatCell({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.statCell}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: uiTheme.background,
-  },
-  scroll: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 32,
-  },
-  headerCard: {
-    alignItems: "center",
-    marginBottom: 20,
-    gap: 6,
-  },
-  headerMain: {
-    color: uiTheme.textPrimary,
-    fontSize: 32,
-    fontWeight: "800",
-    fontVariant: ["tabular-nums"],
-  },
-  headerSub: {
-    color: uiTheme.textSecondary,
-    fontSize: 15,
-    fontVariant: ["tabular-nums"],
-  },
-  headerPercent: {
-    color: uiTheme.accent,
-    fontSize: 14,
-    fontWeight: "700",
-    marginTop: 4,
-  },
-  bottleSection: {
-    marginBottom: 24,
-    paddingVertical: 8,
-  },
-  logButtons: {
-    gap: 10,
-    marginBottom: 20,
-  },
-  secondaryRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  secondaryBtn: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: uiTheme.border,
-    backgroundColor: uiTheme.surface2,
-    borderRadius: uiTheme.radiusInput,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  secondaryText: {
-    color: uiTheme.textPrimary,
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  settingsCard: {
-    gap: 14,
-    marginBottom: 16,
-  },
-  settingRow: {
-    gap: 6,
-  },
-  settingLabel: {
-    color: uiTheme.textSecondary,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  settingValueRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  settingValue: {
-    color: uiTheme.textPrimary,
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  editLink: {
-    color: uiTheme.accent,
-    fontWeight: "700",
-    fontSize: 14,
-  },
-  inlineEdit: {
-    gap: 8,
-  },
-  nudgeCard: {
-    marginBottom: 16,
-    borderColor: uiTheme.warning,
-  },
-  nudgeTitle: {
-    color: uiTheme.warning,
-    fontWeight: "700",
-    fontSize: 14,
-    marginBottom: 6,
-  },
-  nudgeBody: {
-    color: uiTheme.textPrimary,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  timelineSection: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    color: uiTheme.textPrimary,
-    fontSize: 17,
-    fontWeight: "700",
-    marginBottom: 10,
-  },
-  statsRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  statCell: {
-    flex: 1,
-    backgroundColor: uiTheme.surface1,
-    borderWidth: 1,
-    borderColor: uiTheme.border,
-    borderRadius: uiTheme.radiusCard,
-    padding: 12,
-    alignItems: "center",
-  },
-  statLabel: {
-    color: uiTheme.textSecondary,
-    fontSize: 11,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  statValue: {
-    color: uiTheme.textPrimary,
-    fontSize: 13,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  sheetBtn: {
-    marginTop: 12,
-  },
-});

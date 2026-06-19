@@ -2,6 +2,7 @@ export type CelebrationType =
   | "water_goal"
   | "habits_complete"
   | "focus_complete"
+  | "steps_goal"
   | "streak_3"
   | "streak_7"
   | "streak_14"
@@ -12,7 +13,7 @@ export type CelebrationType =
   | "weight_5kg"
   | "first_habit"
   | "first_food"
-  | "first_focus"
+  | "first_workout"
   | "calorie_goal";
 
 export interface CelebrationExtraData {

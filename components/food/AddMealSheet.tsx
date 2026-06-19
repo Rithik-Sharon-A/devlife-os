@@ -145,7 +145,12 @@ export function AddMealSheet({ mealType, onDone }: AddMealSheetProps) {
         </>
       ) : null}
 
-      <ScrollView style={styles.results} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.results}
+        contentContainerStyle={styles.resultsContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {isLoading ? (
           <View style={styles.center}>
             <ActivityIndicator color={uiTheme.accent} />
@@ -182,6 +187,10 @@ const styles = StyleSheet.create({
   results: {
     flex: 1,
     marginTop: 4,
+  },
+  resultsContent: {
+    flexGrow: 1,
+    paddingBottom: 24,
   },
   center: {
     alignItems: "center",

@@ -1,4 +1,4 @@
-import { Tabs } from "expo-router";
+import { Tabs, useSegments } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
@@ -11,7 +11,7 @@ import { isAIConfigured } from "../../utils/ai";
 
 const TAB_ICONS: Record<string, string> = {
   index: "🏠",
-  focus: "⏱️",
+  health: "🫀",
   food: "🍛",
   water: "💧",
   habits: "✅",
@@ -23,6 +23,9 @@ const INACTIVE_COLOR = "#4a4a5a";
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const segments = useSegments();
+  const hideTabBar =
+    segments.includes("add-meal") || segments.includes("meal-detail");
   const { theme } = useTheme();
   const { colors } = theme;
   const aiConfig = useAppStore((s) => s.aiConfig);
@@ -94,14 +97,16 @@ export default function TabLayout() {
             fontSize: 11,
             fontWeight: "600",
           },
-          tabBarStyle: {
-            backgroundColor: "#0f0f16",
-            borderTopColor: "#1a1a24",
-            borderTopWidth: 1,
-            height: TAB_BAR_HEIGHT + insets.bottom,
-            paddingTop: 6,
-            paddingBottom: insets.bottom + 4,
-          },
+          tabBarStyle: hideTabBar
+            ? { display: "none" }
+            : {
+                backgroundColor: "#0f0f16",
+                borderTopColor: "#1a1a24",
+                borderTopWidth: 1,
+                height: TAB_BAR_HEIGHT + insets.bottom,
+                paddingTop: 6,
+                paddingBottom: insets.bottom + 4,
+              },
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.tabIconWrap}>
               <Text style={[styles.tabIcon, { color, opacity: focused ? 1 : 0.9 }]}>
@@ -113,14 +118,14 @@ export default function TabLayout() {
         })}
       >
         <Tabs.Screen name="index" options={{ title: "Home" }} />
-        <Tabs.Screen name="focus" options={{ title: "Focus" }} />
+        <Tabs.Screen name="health" options={{ title: "Health" }} />
         <Tabs.Screen name="food" options={{ title: "Food" }} />
         <Tabs.Screen name="water" options={{ title: "Water" }} />
         <Tabs.Screen name="habits" options={{ title: "Habits" }} />
         <Tabs.Screen name="settings" options={{ href: null }} />
       </Tabs>
 
-      {showChatFab ? (
+      {showChatFab && !hideTabBar ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Open AI chat"

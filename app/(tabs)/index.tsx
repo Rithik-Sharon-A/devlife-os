@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { format } from "date-fns";
-import { router } from "expo-router";
+import { router, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutAnimation,
@@ -15,15 +15,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { AddMealSheet } from "../../components/food/AddMealSheet";
 import StepsCard from "../../components/health/StepsCard";
 import { useCelebrationContext } from "../../components/providers/CelebrationProvider";
-import { BottomSheet } from "../../components/ui/BottomSheet";
-import { FocusSessionCard } from "../../components/ui/FocusSessionCard";
 import {
   AnimatedCard,
   CountUpNumber,
-  FadeIn,
   HabitCheckbox,
   PulsingFire,
 } from "../../components/ui/MicroAnimations";
@@ -36,6 +32,7 @@ import { isAIConfigured } from "../../utils/ai";
 import { getCardStyle } from "../../utils/cardStyles";
 import { radii, spacing } from "../../utils/designTokens";
 import { getTodayString } from "../../utils/date";
+import { inferMealType, navigateToAddMeal } from "../../utils/foodNavigation";
 import { getCurrentStreak } from "../../utils/habitStreak";
 import {
   getInitials,
@@ -159,9 +156,10 @@ export default function HomeScreen() {
     steps,
     goal: stepGoal,
     percentage: stepPercentage,
-    isTracking,
     isAvailable,
     isLoading: stepsLoading,
+    isManual,
+    clearManualOverride,
   } = useStepCounter();
   const updateSteps = useAppStore((s) => s.updateSteps);
 
@@ -174,13 +172,11 @@ export default function HomeScreen() {
   const habits = useAppStore((s) => s.habits);
   const habitLogs = useAppStore((s) => s.habitLogs);
   const sleepLog = useAppStore((s) => s.sleepLog);
-  const focusSessions = useAppStore((s) => s.focusSessions);
   const toggleHabit = useAppStore((s) => s.toggleHabit);
   const logWaterMl = useAppStore((s) => s.logWaterMl);
 
   const [mission, setMission] = useState<string | null>(null);
   const [missionVisible, setMissionVisible] = useState(false);
-  const [mealSheetOpen, setMealSheetOpen] = useState(false);
   const [nudgeExpanded, setNudgeExpanded] = useState(false);
   const [nudgeText, setNudgeText] = useState("");
   const [nudgeLoading, setNudgeLoading] = useState(false);
@@ -224,11 +220,6 @@ export default function HomeScreen() {
 
   const sleepText = sleepLog ? formatSleep(sleepLog.durationHours) : "—";
 
-  const todayFocusSessions = focusSessions.filter(
-    (s) => s.startTime.slice(0, 10) === today && s.type === "work"
-  );
-  const completedFocus = todayFocusSessions.filter((s) => s.isCompleted).length;
-
   const pendingHabits = useMemo(
     () =>
       activeHabits.filter(
@@ -251,7 +242,7 @@ export default function HomeScreen() {
 
   const caloriesDone = caloriePct >= 80;
   const waterDone = waterPct >= 80;
-  const focusDone = completedFocus >= 1;
+  const healthDone = steps >= stepGoal && stepGoal > 0;
   const habitsDoneFlag =
     activeHabits.length > 0 && habitsDone === activeHabits.length;
 
@@ -580,7 +571,7 @@ export default function HomeScreen() {
                   🔥 {areaIcon(caloriesDone)} 💧 {areaIcon(waterDone)}
                 </Text>
                 <Text style={styles.areaDotLine}>
-                  ⏱️ {areaIcon(focusDone)} ✅ {areaIcon(habitsDoneFlag)}
+                  🫀 {areaIcon(healthDone)} ✅ {areaIcon(habitsDoneFlag)}
                 </Text>
               </View>
             </View>
@@ -600,7 +591,10 @@ export default function HomeScreen() {
         ) : null}
 
         <View style={styles.quickRow}>
-          <Pressable style={styles.quickBtn} onPress={() => setMealSheetOpen(true)}>
+          <Pressable
+            style={styles.quickBtn}
+            onPress={() => navigateToAddMeal(inferMealType())}
+          >
             <Text style={styles.quickBtnText}>🍛 Log meal</Text>
           </Pressable>
           <Pressable style={styles.quickBtn} onPress={quickLogWater}>
@@ -657,10 +651,17 @@ export default function HomeScreen() {
               steps={steps}
               goal={stepGoal}
               percentage={stepPercentage}
-              isTracking={isTracking}
               isAvailable={isAvailable}
               isLoading={stepsLoading}
-              onPress={() => router.push("/(tabs)/settings")}
+              isManual={isManual}
+              onManualEntry={() => {
+                if (isManual) {
+                  void clearManualOverride();
+                } else {
+                  router.push("/(tabs)/health" as Href);
+                }
+              }}
+              onPress={() => router.push("/(tabs)/health" as Href)}
             />
           </AnimatedCard>
           <AnimatedCard delay={240} style={{ flex: 1 }}>
@@ -670,22 +671,11 @@ export default function HomeScreen() {
               label="sleep"
               subtext={sleepLog ? "Logged last night" : "Log last night's sleep 😴"}
               progress={sleepLog ? 100 : 0}
-              onPress={() => router.push("/(tabs)/habits")}
+              onPress={() => router.push("/(tabs)/health" as Href)}
               colors={colors}
             />
           </AnimatedCard>
         </View>
-
-        {completedFocus < 4 ? (
-          <FadeIn delay={300}>
-            <Pressable onPress={() => router.push("/(tabs)/focus")}>
-              <FocusSessionCard
-                time="25:00"
-                subtitle={`Deep work · ${completedFocus + 1} of 4`}
-              />
-            </Pressable>
-          </FadeIn>
-        ) : null}
 
         <View style={styles.habitsSection}>
           <View style={styles.habitsHeader}>
@@ -751,24 +741,6 @@ export default function HomeScreen() {
           </Pressable>
         ) : null}
       </ScrollView>
-
-      <BottomSheet
-        visible={mealSheetOpen}
-        onClose={() => setMealSheetOpen(false)}
-        title="Log meal"
-        height="full"
-      >
-        <AddMealSheet
-          mealType={
-            new Date().getHours() < 11
-              ? "breakfast"
-              : new Date().getHours() < 15
-                ? "lunch"
-                : "dinner"
-          }
-          onDone={() => setMealSheetOpen(false)}
-        />
-      </BottomSheet>
     </SafeAreaView>
   );
 }

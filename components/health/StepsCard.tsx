@@ -9,9 +9,10 @@ interface StepsCardProps {
   steps: number;
   goal: number;
   percentage: number;
-  isTracking: boolean;
   isAvailable: boolean;
   isLoading: boolean;
+  isManual: boolean;
+  onManualEntry: () => void;
   onPress?: () => void;
 }
 
@@ -19,14 +20,15 @@ export default function StepsCard({
   steps,
   goal,
   percentage,
-  isTracking,
   isAvailable,
   isLoading,
+  isManual,
+  onManualEntry,
   onPress,
 }: StepsCardProps) {
   const getMotivation = () => {
     if (isLoading) return "Loading...";
-    if (!isAvailable) return "Sensor unavailable";
+    if (!isAvailable && !isManual) return "Sensor unavailable";
     if (steps === 0) return "Start walking! 🚶";
     if (percentage >= 100) return "Goal crushed! 🎉";
     if (percentage >= 75) return "Almost there! 💪";
@@ -43,18 +45,37 @@ export default function StepsCard({
 
   const fillWidth = Math.min(100, percentage);
 
+  const renderBadge = () => {
+    if (isManual) {
+      return (
+        <View style={styles.manualBadge}>
+          <Text style={styles.manualText}>✏️ Manual</Text>
+        </View>
+      );
+    }
+    if (isAvailable && !isLoading) {
+      return (
+        <View style={styles.liveBadge}>
+          <View style={styles.liveDot} />
+          <Text style={styles.liveText}>LIVE</Text>
+        </View>
+      );
+    }
+    if (!isLoading && !isAvailable) {
+      return (
+        <View style={styles.unavailableBadge}>
+          <Text style={styles.unavailableText}>Unavailable</Text>
+        </View>
+      );
+    }
+    return null;
+  };
+
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.75}>
       <View style={styles.topRow}>
         <Text style={styles.icon}>👟</Text>
-        <View style={styles.rightTop}>
-          {isTracking && isAvailable ? (
-            <View style={styles.liveBadge}>
-              <View style={styles.liveDot} />
-              <Text style={styles.liveText}>LIVE</Text>
-            </View>
-          ) : null}
-        </View>
+        <View style={styles.rightTop}>{renderBadge()}</View>
       </View>
 
       {steps === 0 ? (
@@ -86,6 +107,12 @@ export default function StepsCard({
       </View>
 
       <Text style={styles.motivation}>{getMotivation()}</Text>
+
+      <TouchableOpacity onPress={onManualEntry} hitSlop={8}>
+        <Text style={styles.manualLink}>
+          {isManual ? "↩ Switch to auto-count" : "✏️ Enter manually"}
+        </Text>
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 }
@@ -132,6 +159,32 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 0.5,
   },
+  manualBadge: {
+    backgroundColor: "rgba(251, 191, 36, 0.12)",
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 99,
+    borderWidth: 1,
+    borderColor: "rgba(251, 191, 36, 0.3)",
+  },
+  manualText: {
+    fontSize: 9,
+    color: "#fbbf24",
+    fontWeight: "700",
+  },
+  unavailableBadge: {
+    backgroundColor: "rgba(107, 114, 128, 0.12)",
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 99,
+    borderWidth: 1,
+    borderColor: "rgba(107, 114, 128, 0.25)",
+  },
+  unavailableText: {
+    fontSize: 9,
+    color: "#6b7280",
+    fontWeight: "700",
+  },
   value: {
     fontSize: 26,
     fontWeight: "700",
@@ -170,5 +223,10 @@ const styles = StyleSheet.create({
   motivation: {
     fontSize: 10,
     color: "#6b7280",
+  },
+  manualLink: {
+    fontSize: 11,
+    color: "#6b7280",
+    marginTop: 4,
   },
 });

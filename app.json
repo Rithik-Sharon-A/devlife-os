@@ -34,6 +34,8 @@
       "package": "com.dayos.app",
       "versionCode": 1,
       "permissions": [
+        "android.permission.ACTIVITY_RECOGNITION",
+        "android.permission.BODY_SENSORS",
         "android.permission.CAMERA",
         "android.permission.VIBRATE",
         "android.permission.RECEIVE_BOOT_COMPLETED",
@@ -48,6 +50,7 @@
     "plugins": [
       "expo-router",
       "expo-font",
+      "expo-pedometer",
       [
         "expo-build-properties",
         {

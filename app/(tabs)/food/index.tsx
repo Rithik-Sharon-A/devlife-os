@@ -10,24 +10,28 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { AddMealSheet } from "../../components/food/AddMealSheet";
-import { CalorieBar } from "../../components/food/CalorieBar";
-import { MacroPills } from "../../components/food/MacroPills";
-import { MealSection } from "../../components/food/MealSection";
-import { NutritionSummary } from "../../components/food/NutritionSummary";
-import { useCelebrationContext } from "../../components/providers/CelebrationProvider";
-import { Badge } from "../../components/ui/Badge";
-import { BottomSheet } from "../../components/ui/BottomSheet";
-import { Button } from "../../components/ui/Button";
-import { Card } from "../../components/ui/Card";
-import { AnimatedCard } from "../../components/ui/MicroAnimations";
-import { uiTheme } from "../../components/ui/theme";
-import { useAI } from "../../hooks/useAI";
-import { useAppStore } from "../../store/useAppStore";
-import type { FoodItem, GoalType, MealEntry, MealType } from "../../types";
-import { getLast7Days, getNowString } from "../../utils/date";
-import * as storage from "../../utils/storage";
-import { calculateProteinGoal } from "../../utils/tdee";
+import { CalorieBar } from "../../../components/food/CalorieBar";
+import { MacroPills } from "../../../components/food/MacroPills";
+import { MealSection } from "../../../components/food/MealSection";
+import { NutritionSummary } from "../../../components/food/NutritionSummary";
+import { useCelebrationContext } from "../../../components/providers/CelebrationProvider";
+import { Badge } from "../../../components/ui/Badge";
+import { Button } from "../../../components/ui/Button";
+import { Card } from "../../../components/ui/Card";
+import { AnimatedCard } from "../../../components/ui/MicroAnimations";
+import { uiTheme } from "../../../components/ui/theme";
+import { useAI } from "../../../hooks/useAI";
+import { useAppStore } from "../../../store/useAppStore";
+import type { FoodItem, GoalType, MealEntry, MealType } from "../../../types";
+import { getLast7Days, getNowString } from "../../../utils/date";
+import {
+  inferMealType,
+  MEAL_TITLES,
+  navigateToAddMeal,
+  navigateToMealDetail,
+} from "../../../utils/foodNavigation";
+import * as storage from "../../../utils/storage";
+import { calculateProteinGoal } from "../../../utils/tdee";
 
 const MEALS: Array<{ type: MealType; title: string }> = [
   { type: "breakfast", title: "Breakfast" },
@@ -53,16 +57,8 @@ interface ParsedSuggestion {
   calories: number;
 }
 
-function inferMealType(): MealType {
-  const hour = new Date().getHours();
-  if (hour < 11) return "breakfast";
-  if (hour < 15) return "lunch";
-  if (hour < 20) return "dinner";
-  return "snack";
-}
-
 function mealTitle(type: MealType): string {
-  return MEALS.find((m) => m.type === type)?.title ?? type;
+  return MEAL_TITLES[type] ?? type;
 }
 
 function entryId(): string {
@@ -107,7 +103,7 @@ function parseMealSuggestions(text: string): ParsedSuggestion[] {
     );
     if (match) {
       results.push({
-        name: match[1].trim().replace(/\s*\(.*\)$/, ""),
+        name: match[1]!.trim().replace(/\s*\(.*\)$/, ""),
         calories: Number(match[2]),
       });
     }
@@ -146,8 +142,6 @@ export default function FoodScreen() {
 
   const { getMealSuggestion } = useAI();
 
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [activeMeal, setActiveMeal] = useState<MealType>("breakfast");
   const [suggestionMeal, setSuggestionMeal] = useState<MealType>(inferMealType);
   const [suggestionText, setSuggestionText] = useState<string | null>(null);
   const [suggestionLoading, setSuggestionLoading] = useState(false);
@@ -206,11 +200,6 @@ export default function FoodScreen() {
     () => (suggestionText ? parseMealSuggestions(suggestionText) : []),
     [suggestionText]
   );
-
-  const openAddSheet = (mealType: MealType) => {
-    setActiveMeal(mealType);
-    setSheetOpen(true);
-  };
 
   const quickAdd = useCallback(
     (item: FoodItem, quantity: number, mealType: MealType) => {
@@ -300,7 +289,8 @@ export default function FoodScreen() {
             <MealSection
               mealType={meal.type}
               title={meal.title}
-              onAddPress={() => openAddSheet(meal.type)}
+              onRowPress={() => navigateToMealDetail(meal.type)}
+              onAddPress={() => navigateToAddMeal(meal.type)}
             />
           </AnimatedCard>
         ))}
@@ -403,18 +393,6 @@ export default function FoodScreen() {
           highlightProtein={profile?.goalType === "weight_loss"}
         />
       </ScrollView>
-
-      <BottomSheet
-        visible={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-        title={`Add ${mealTitle(activeMeal)}`}
-        height="full"
-      >
-        <AddMealSheet
-          mealType={activeMeal}
-          onDone={() => setSheetOpen(false)}
-        />
-      </BottomSheet>
     </SafeAreaView>
   );
 }
