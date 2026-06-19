@@ -179,7 +179,7 @@ function ratioPercent(completed: number, total: number): number {
 }
 
 /**
- * Calculates the composite DayOS daily performance score.
+ * Calculates the composite cAI daily performance score.
  *
  * Weighting: tasks 30%, calories 25%, water 25%, habits 20%.
  *

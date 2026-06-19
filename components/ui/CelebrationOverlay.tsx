@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 
+import { APP_NAME } from "../../utils/appBrand";
 import { CELEBRATION_CONFIGS } from "../../data/celebrationConfigs";
 import type { CelebrationExtraData, CelebrationType } from "../../types/celebrations";
 import Confetti from "./Confetti";
@@ -108,7 +109,7 @@ export default function CelebrationOverlay({
     if (!config) return;
     try {
       await Share.share({
-        message: `${config.title}\n${config.subtitle}\n\nTracked with DayOS 🎯`,
+        message: `${config.title}\n${config.subtitle}\n\nTracked with ${APP_NAME} 🎯`,
       });
     } catch {
       // Share cancelled or failed

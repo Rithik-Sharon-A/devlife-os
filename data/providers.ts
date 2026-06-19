@@ -254,8 +254,8 @@ const openRouterConfig: ProviderConfig = {
   headerBuilder: (apiKey) => ({
     "Content-Type": "application/json",
     Authorization: `Bearer ${apiKey}`,
-    "HTTP-Referer": "https://dayos.app",
-    "X-Title": "DayOS",
+    "HTTP-Referer": "https://cai.app",
+    "X-Title": "cAI",
   }),
   requestBuilder: (messages, model, systemPrompt) => ({
     model,

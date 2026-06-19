@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 
 import { useTheme } from "../context/ThemeContext";
+import { APP_TAGLINE } from "../utils/appBrand";
 import { radii, spacing } from "../utils/designTokens";
 import { typography } from "../utils/typography";
 
@@ -47,11 +48,11 @@ export function AppSplash({ visible, onHidden }: AppSplashProps) {
         </View>
         <View style={styles.wordmark}>
           <View style={styles.titleRow}>
-            <Text style={[styles.day, { color: colors.textPrimary }]}>Day</Text>
-            <Text style={[styles.os, { color: colors.accent }]}>OS</Text>
+            <Text style={[styles.brandC, { color: colors.textPrimary }]}>c</Text>
+            <Text style={[styles.brandAI, { color: colors.accent }]}>AI</Text>
           </View>
           <Text style={[styles.tagline, { color: colors.textSecondary }]}>
-            Your private operating system for the day.
+            {APP_TAGLINE}
           </Text>
         </View>
       </View>
@@ -91,11 +92,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "baseline",
   },
-  day: {
+  brandC: {
     ...typography.display,
     fontSize: 32,
   },
-  os: {
+  brandAI: {
     ...typography.display,
     fontSize: 32,
   },

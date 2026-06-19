@@ -1136,7 +1136,7 @@ export const useAppStore = create<AppStore>()(
 
         get().checkDayRollover();
       } catch (error) {
-        console.error("[DayOS] Failed to initialize store:", error);
+        console.error("[cAI] Failed to initialize store:", error);
         set((state) => {
           state.isLoading = false;
           state.isStoreInitialized = true;

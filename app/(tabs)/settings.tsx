@@ -216,7 +216,7 @@ export default function SettingsScreen() {
 
   const exportData = async () => {
     const json = await storage.exportAllData();
-    await Share.share({ message: json, title: "dayos-export.json" });
+    await Share.share({ message: json, title: "cai-export.json" });
     showToast("Data export ready to share");
   };
 
@@ -612,7 +612,7 @@ export default function SettingsScreen() {
           <SettingsRow
             label="Send feedback"
             onPress={() =>
-              Linking.openURL("mailto:support@dayos.app?subject=DayOS%20Feedback")
+              Linking.openURL("mailto:support@cai.app?subject=cAI%20Feedback")
             }
             isLast
           />

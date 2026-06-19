@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
+import { APP_NAME } from "../../utils/appBrand";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
@@ -54,7 +55,7 @@ export default function OnboardingIdentity() {
       showBack={false}
       footer={<Button label="Continue" onPress={onNext} />}
     >
-      <Text style={styles.title}>Let's set up your DayOS</Text>
+      <Text style={styles.title}>Let's set up your {APP_NAME}</Text>
       <Text style={styles.subtitle}>
         Takes 2 minutes. Your data stays on your phone.
       </Text>

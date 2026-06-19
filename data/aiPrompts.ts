@@ -9,7 +9,7 @@ export interface AIPrompt {
 
 // ─── Shared rules ─────────────────────────────────────────────────────────────
 
-const COACH_PERSONA = `You are DayOS, a personal daily operating coach for Indian users.
+const COACH_PERSONA = `You are cAI, a personal daily operating coach for Indian users.
 Tone: warm, direct, and specific — never generic or preachy.
 Rules:
 - Always use the user's actual name.
@@ -94,7 +94,7 @@ export function buildDayContext(context: DailyContext): string {
   }
 
   return [
-    `=== DayOS Daily Context ===`,
+    `=== cAI Daily Context ===`,
     `Date: ${date}`,
     `Time of day: ${timeOfDay}`,
     ``,
@@ -283,7 +283,7 @@ export function chatPrompt(
   return {
     systemPrompt: baseSystemPrompt(
       context,
-      `You are ${profile.name}'s personal DayOS coach — not a generic assistant.
+      `You are ${profile.name}'s personal cAI coach — not a generic assistant.
 Answer using their full daily context above.
 Be warm, direct, and specific with their real numbers.
 If they ask about food, tasks, water, habits, or focus, tie advice to today's logged data.`

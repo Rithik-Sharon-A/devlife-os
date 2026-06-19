@@ -28,6 +28,7 @@ import { useAI } from "../../hooks/useAI";
 import { useStepCounter } from "../../hooks/useStepCounter";
 import { useAppStore } from "../../store/useAppStore";
 import { isAIConfigured } from "../../utils/ai";
+import { APP_NAME } from "../../utils/appBrand";
 import { getCardStyle } from "../../utils/cardStyles";
 import { radii, spacing } from "../../utils/designTokens";
 import { getTodayString } from "../../utils/date";
@@ -702,7 +703,7 @@ export default function HomeScreen() {
             onPress={() => setNudgeExpanded((v) => !v)}
           >
             <View style={styles.nudgeHeader}>
-              <Text style={styles.nudgeTitle}>DayOS says</Text>
+              <Text style={styles.nudgeTitle}>{APP_NAME} says</Text>
               <Pressable
                 onPress={(e) => {
                   e.stopPropagation?.();

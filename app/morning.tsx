@@ -16,6 +16,7 @@ import { useAI } from "../hooks/useAI";
 import { useAppStore } from "../store/useAppStore";
 import type { MoodRating } from "../types";
 import { isAIConfigured } from "../utils/ai";
+import { APP_NAME } from "../utils/appBrand";
 import { getCurrentStreak } from "../utils/habitStreak";
 import {
   buildRuleBasedMission,
@@ -84,7 +85,7 @@ export default function MorningScreen() {
       if (isAIConfigured(aiConfig)) {
         try {
           const aiMission = await askAI(
-            `You are DayOS, a concise daily coach. Reply with ONE sentence starting with "Today's mission:". Be specific with numbers.`,
+            `You are ${APP_NAME}, a concise daily coach. Reply with ONE sentence starting with "Today's mission:". Be specific with numbers.`,
             `${name}'s calorie goal is ${profile.dailyCalorieGoal} kcal. Water goal is ${waterConfig.dailyGoalBottles} bottles. Yesterday score: ${snap.score}%. Water ${snap.waterPct}%, calories ${snap.caloriesPct}%, habits ${snap.habitsPct}%. Write one actionable mission for today.`
           );
           if (aiMission.trim()) {

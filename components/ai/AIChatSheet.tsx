@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 
+import { APP_NAME } from "../../utils/appBrand";
 import { useAI } from "../../hooks/useAI";
 import type { AIMessage } from "../../types";
 import { BottomSheet } from "../ui/BottomSheet";
@@ -94,7 +95,7 @@ export function AIChatSheet({ visible, onClose }: AIChatSheetProps) {
     content.startsWith("Request timed out");
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="DayOS AI Coach" height="full">
+    <BottomSheet visible={visible} onClose={onClose} title={`${APP_NAME} AI Coach`} height="full">
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -156,7 +157,7 @@ export function AIChatSheet({ visible, onClose }: AIChatSheetProps) {
             ref={inputRef}
             value={draft}
             onChangeText={setDraft}
-            placeholder="Ask DayOS..."
+            placeholder={`Ask ${APP_NAME}...`}
             placeholderTextColor={uiTheme.textSecondary}
             style={styles.input}
             returnKeyType="send"

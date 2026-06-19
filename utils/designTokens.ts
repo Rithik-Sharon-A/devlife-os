@@ -1,4 +1,4 @@
-/** DayOS brand design tokens — single source of truth for raw values. */
+/** cAI brand design tokens — single source of truth for raw values. */
 
 export const midnightCore = {
   background: "#0a0a0f",

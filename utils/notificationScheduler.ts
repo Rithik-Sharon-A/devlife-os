@@ -107,7 +107,7 @@ export const scheduleMorningBriefing = async (time: string): Promise<void> => {
     await Notif.scheduleNotificationAsync({
       content: {
         title: "☀️ Good morning!",
-        body: "Open DayOS to start your day.",
+        body: "Open cAI to start your day.",
       },
       trigger: { hour: h, minute: m, repeats: true },
     });
@@ -183,7 +183,7 @@ export async function scheduleNotificationsFromConfig(
       await Notif.scheduleNotificationAsync({
         content: {
           title: "☀️ Good morning!",
-          body: "Open DayOS to start your day.",
+          body: "Open cAI to start your day.",
         },
         trigger: { hour: h, minute: m, repeats: true },
       });

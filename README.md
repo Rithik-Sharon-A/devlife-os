@@ -1,4 +1,4 @@
-# DayOS
+# cAI
 
 A fully local, privacy-first daily health & productivity companion built with Expo.
 
@@ -63,7 +63,7 @@ npx expo start --android
 
 ## Adding an AI API Key
 
-DayOS is **BYOK** (Bring Your Own Key). No keys are stored in the repo or environment variables — everything lives on-device in encrypted MMKV storage.
+cAI is **BYOK** (Bring Your Own Key). No keys are stored in the repo or environment variables — everything lives on-device in encrypted MMKV storage.
 
 1. Open the app and complete onboarding, or tap **Settings → AI Companion**.
 2. Choose a provider:

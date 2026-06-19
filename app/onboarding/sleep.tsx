@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { APP_NAME } from "../../utils/appBrand";
 import { Button } from "../../components/ui/Button";
 import { uiTheme } from "../../components/ui/theme";
 import { useOnboardingStore } from "../../store/useOnboardingStore";
@@ -25,7 +26,7 @@ export default function OnboardingSleep() {
   return (
     <OnboardingShell step={step} footer={<Button label="Continue" onPress={onNext} />}>
       <Text style={styles.title}>Daily routine</Text>
-      <Text style={styles.subtitle}>Help DayOS know your schedule</Text>
+      <Text style={styles.subtitle}>Help {APP_NAME} know your schedule</Text>
 
       <View style={styles.form}>
         <TimePickerField
