@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -12,9 +13,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { FocusRing } from "../../components/focus/FocusRing";
 import { SessionDots } from "../../components/focus/SessionDots";
 import { TaskSelector } from "../../components/focus/TaskSelector";
+import { useCelebrationContext } from "../../components/providers/CelebrationProvider";
 import { Badge } from "../../components/ui/Badge";
 import { Card } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
+import { AnimatedCard, BounceButton } from "../../components/ui/MicroAnimations";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { uiTheme } from "../../components/ui/theme";
 import { useFocusChime } from "../../hooks/useFocusChime";
@@ -49,6 +52,7 @@ function sessionDurationSeconds(
 }
 
 export default function FocusScreen() {
+  const { celebrate } = useCelebrationContext();
   const tasks = useAppStore((s) => s.tasks);
   const focusConfig = useAppStore((s) => s.focusConfig);
   const focusSessions = useAppStore((s) => s.focusSessions);
@@ -93,6 +97,26 @@ export default function FocusScreen() {
       todaySessions.filter((s) => s.type === "work" && s.isCompleted).length,
     [todaySessions]
   );
+
+  const prevCompletedRef = useRef(completedWorkSessions);
+
+  useEffect(() => {
+    if (completedWorkSessions <= prevCompletedRef.current) {
+      prevCompletedRef.current = completedWorkSessions;
+      return;
+    }
+
+    celebrate("focus_complete");
+
+    void AsyncStorage.getItem("dayos:first_focus_done").then((done) => {
+      if (!done) {
+        celebrate("first_focus");
+        void AsyncStorage.setItem("dayos:first_focus_done", "1");
+      }
+    });
+
+    prevCompletedRef.current = completedWorkSessions;
+  }, [celebrate, completedWorkSessions]);
 
   const totalFocusedMinutes = useMemo(
     () =>
@@ -187,12 +211,14 @@ export default function FocusScreen() {
         </Card>
 
         <View style={styles.timerSection}>
-          <FocusRing
-            secondsLeft={secondsLeft}
-            totalSeconds={totalSeconds}
-            isRunning={isRunning}
-            sessionLabel={sessionLabel}
-          />
+          <AnimatedCard delay={50}>
+            <FocusRing
+              secondsLeft={secondsLeft}
+              totalSeconds={totalSeconds}
+              isRunning={isRunning}
+              sessionLabel={sessionLabel}
+            />
+          </AnimatedCard>
         </View>
 
         <View style={styles.sessionProgress}>
@@ -212,9 +238,11 @@ export default function FocusScreen() {
         </View>
 
         <View style={styles.controls}>
-          <Pressable style={styles.primaryBtn} onPress={onPrimaryPress}>
-            <Text style={styles.primaryBtnText}>{primaryLabel}</Text>
-          </Pressable>
+          <BounceButton onPress={onPrimaryPress}>
+            <View style={styles.primaryBtn}>
+              <Text style={styles.primaryBtnText}>{primaryLabel}</Text>
+            </View>
+          </BounceButton>
 
           <View style={styles.secondaryRow}>
             <Pressable style={styles.secondaryBtn} onPress={reset}>

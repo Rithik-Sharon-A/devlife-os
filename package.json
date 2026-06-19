@@ -6,14 +6,20 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build:android:preview": "eas build --platform android --profile preview",
+    "build:android:dev": "eas build --platform android --profile development",
+    "build:production": "eas build --platform android --profile production",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@lottiefiles/dotlottie-react": "^0.13.5",
     "@react-native-async-storage/async-storage": "2.2.0",
     "babel-preset-expo": "~54.0.10",
     "date-fns": "^3.6.0",
     "expo": "~54.0.0",
     "expo-av": "~16.0.8",
+    "expo-build-properties": "~1.0.10",
     "expo-calendar": "~15.0.8",
     "expo-camera": "~17.0.10",
     "expo-constants": "~18.0.13",
@@ -23,8 +29,10 @@
     "expo-notifications": "~0.32.17",
     "expo-pedometer": "~1.0.1",
     "expo-router": "~6.0.24",
+    "expo-sensors": "~15.0.8",
     "expo-status-bar": "~3.0.9",
     "immer": "^10.1.1",
+    "lottie-react-native": "~7.3.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
@@ -38,6 +46,7 @@
   "devDependencies": {
     "@babel/core": "^7.24.0",
     "@types/react": "~19.1.10",
+    "canvas": "^3.2.3",
     "typescript": "^5.3.3"
   },
   "private": true

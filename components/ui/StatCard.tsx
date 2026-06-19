@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -12,6 +13,7 @@ interface StatCardProps {
   label: string;
   value: string;
   valueSuffix?: string;
+  customValue?: ReactNode;
   change?: {
     value: string;
     trend: StatChangeTrend;
@@ -23,6 +25,7 @@ export function StatCard({
   label,
   value,
   valueSuffix,
+  customValue,
   change,
 }: StatCardProps) {
   const { theme } = useTheme();
@@ -115,7 +118,7 @@ export function StatCard({
         ) : null}
       </View>
       <View style={styles.valueRow}>
-        <Text style={styles.value}>{value}</Text>
+        {customValue ?? <Text style={styles.value}>{value}</Text>}
         {valueSuffix ? <Text style={styles.suffix}>{valueSuffix}</Text> : null}
       </View>
       <Text style={styles.label}>{label.toUpperCase()}</Text>

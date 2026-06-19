@@ -16,11 +16,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AddHabitSheet } from "../../components/habits/AddHabitSheet";
 import { HabitRow } from "../../components/habits/HabitRow";
+import { useCelebrationContext } from "../../components/providers/CelebrationProvider";
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Input } from "../../components/ui/Input";
+import { AnimatedCard } from "../../components/ui/MicroAnimations";
 import { MoodSelector } from "../../components/ui/MoodSelector";
 import { RingProgress } from "../../components/ui/RingProgress";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
@@ -29,7 +31,7 @@ import { useAI } from "../../hooks/useAI";
 import { useAppStore } from "../../store/useAppStore";
 import type { Habit, MoodRating } from "../../types";
 import { formatTime, getTodayString } from "../../utils/date";
-import { encouragementForProgress } from "../../utils/habitStreak";
+import { encouragementForProgress, getCurrentStreak } from "../../utils/habitStreak";
 
 type MainTab = "Habits" | "Reflect";
 
@@ -63,6 +65,7 @@ export default function HabitsScreen() {
 }
 
 function HabitsTab() {
+  const { celebrate } = useCelebrationContext();
   const habits = useAppStore((s) => s.habits);
   const habitLogs = useAppStore((s) => s.habitLogs);
   const toggleHabit = useAppStore((s) => s.toggleHabit);
@@ -99,6 +102,34 @@ function HabitsTab() {
   const totalCount = activeHabits.length;
   const progress = totalCount > 0 ? doneCount / totalCount : 0;
 
+  const handleToggle = (habit: Habit) => {
+    const wasDone = isHabitDoneToday(habit.id, today, habitLogs);
+    const everCompletedBefore = habitLogs.some((log) => log.isCompleted);
+
+    toggleHabit(habit.id);
+
+    if (wasDone) return;
+
+    const logs = useAppStore.getState().habitLogs;
+
+    if (!everCompletedBefore) {
+      celebrate("first_habit");
+    }
+
+    const allDone = activeHabits.every((h) =>
+      isHabitDoneToday(h.id, today, logs)
+    );
+    if (allDone && activeHabits.length > 0) {
+      celebrate("habits_complete");
+    }
+
+    const streak = getCurrentStreak(habit.id, logs);
+    if (streak === 3) celebrate("streak_3", { streakCount: 3 });
+    if (streak === 7) celebrate("streak_7", { streakCount: 7 });
+    if (streak === 14) celebrate("streak_14", { streakCount: 14 });
+    if (streak === 30) celebrate("streak_30", { streakCount: 30 });
+  };
+
   const openAdd = () => {
     setEditingHabit(null);
     setSheetOpen(true);
@@ -122,26 +153,28 @@ function HabitsTab() {
         showsVerticalScrollIndicator={false}
       >
         <Card variant="elevated" style={styles.progressCard}>
-          <View style={styles.progressRow}>
-            <RingProgress
-              size={76}
-              progress={progress}
-              color={uiTheme.accent}
-              strokeWidth={8}
-            >
-              <Text style={styles.progressFraction}>
-                {doneCount}/{totalCount}
-              </Text>
-            </RingProgress>
-            <View style={styles.progressCopy}>
-              <Text style={styles.progressTitle}>
-                {doneCount} of {totalCount} habits done
-              </Text>
-              <Text style={styles.progressMessage}>
-                {encouragementForProgress(doneCount, totalCount)}
-              </Text>
+          <AnimatedCard delay={0}>
+            <View style={styles.progressRow}>
+              <RingProgress
+                size={76}
+                progress={progress}
+                color={uiTheme.accent}
+                strokeWidth={8}
+              >
+                <Text style={styles.progressFraction}>
+                  {doneCount}/{totalCount}
+                </Text>
+              </RingProgress>
+              <View style={styles.progressCopy}>
+                <Text style={styles.progressTitle}>
+                  {doneCount} of {totalCount} habits done
+                </Text>
+                <Text style={styles.progressMessage}>
+                  {encouragementForProgress(doneCount, totalCount)}
+                </Text>
+              </View>
             </View>
-          </View>
+          </AnimatedCard>
         </Card>
 
         <View style={styles.listSection}>
@@ -159,32 +192,34 @@ function HabitsTab() {
             />
           ) : null}
 
-          {pending.map((habit) => (
-            <HabitRow
-              key={habit.id}
-              habit={habit}
-              done={false}
-              logs={habitLogs}
-              onToggle={() => toggleHabit(habit.id)}
-              onEdit={() => openEdit(habit)}
-              onDelete={() => deleteHabit(habit.id)}
-            />
+          {pending.map((habit, index) => (
+            <AnimatedCard key={habit.id} delay={index * 60}>
+              <HabitRow
+                habit={habit}
+                done={false}
+                logs={habitLogs}
+                onToggle={() => handleToggle(habit)}
+                onEdit={() => openEdit(habit)}
+                onDelete={() => deleteHabit(habit.id)}
+              />
+            </AnimatedCard>
           ))}
 
           {completed.length > 0 ? (
             <Text style={styles.completedHeader}>Completed</Text>
           ) : null}
 
-          {completed.map((habit) => (
-            <HabitRow
-              key={habit.id}
-              habit={habit}
-              done
-              logs={habitLogs}
-              onToggle={() => toggleHabit(habit.id)}
-              onEdit={() => openEdit(habit)}
-              onDelete={() => deleteHabit(habit.id)}
-            />
+          {completed.map((habit, index) => (
+            <AnimatedCard key={habit.id} delay={(pending.length + index) * 60}>
+              <HabitRow
+                habit={habit}
+                done
+                logs={habitLogs}
+                onToggle={() => handleToggle(habit)}
+                onEdit={() => openEdit(habit)}
+                onDelete={() => deleteHabit(habit.id)}
+              />
+            </AnimatedCard>
           ))}
         </View>
 

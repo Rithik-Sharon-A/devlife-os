@@ -1,46 +1,53 @@
 import { Platform } from "react-native";
 
+const isExpoGo = (): boolean => {
+  try {
+    const Constants = require("expo-constants").default;
+    return (
+      Constants.appOwnership === "expo" ||
+      Constants.executionEnvironment === "storeClient"
+    );
+  } catch {
+    return true;
+  }
+};
+
 export const useNotifications = () => {
   const requestPermission = async () => {
+    if (Platform.OS === "web" || isExpoGo()) return false;
     try {
-      if (Platform.OS === "web") return false;
-      const { default: Notifications } = await import("expo-notifications");
-      const { status } = await Notifications.requestPermissionsAsync();
+      const Notif = require("expo-notifications");
+      const { status } = await Notif.requestPermissionsAsync();
       return status === "granted";
     } catch {
       return false;
     }
   };
 
-  const scheduleLocalNotification = async (
-    title: string,
-    body: string,
-    seconds: number
-  ) => {
+  const scheduleLocal = async (title: string, body: string, seconds: number) => {
+    if (Platform.OS === "web" || isExpoGo()) return;
     try {
-      if (Platform.OS === "web") return;
-      const { default: Notifications } = await import("expo-notifications");
-      await Notifications.scheduleNotificationAsync({
+      const Notif = require("expo-notifications");
+      await Notif.scheduleNotificationAsync({
         content: { title, body },
         trigger: { seconds },
       });
-    } catch (e) {
-      console.log("Notification skipped:", e);
-    }
+    } catch {}
   };
 
   const cancelAll = async () => {
+    if (Platform.OS === "web" || isExpoGo()) return;
     try {
-      if (Platform.OS === "web") return;
-      const { default: Notifications } = await import("expo-notifications");
-      await Notifications.cancelAllScheduledNotificationsAsync();
+      const Notif = require("expo-notifications");
+      await Notif.cancelAllScheduledNotificationsAsync();
     } catch {}
   };
 
   return {
     requestPermission,
-    scheduleLocalNotification,
+    scheduleLocal,
     cancelAll,
+    isSupported: !isExpoGo() && Platform.OS !== "web",
   };
 };
 

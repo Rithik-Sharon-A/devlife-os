@@ -1,7 +1,14 @@
-import type { PropsWithChildren } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import type { PropsWithChildren, ReactNode } from "react";
+import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
 
-import { uiTheme } from "../ui/theme";
+const colors = {
+  card: "#13131a",
+  separator: "#1e1e28",
+  primary: "#e2e8f0",
+  secondary: "#6b7280",
+  chevron: "#4a4a5a",
+  accent: "#7c6aff",
+};
 
 export function SettingsSection({
   title,
@@ -19,7 +26,7 @@ interface SettingsRowProps {
   label: string;
   value?: string;
   onPress?: () => void;
-  right?: React.ReactNode;
+  right?: ReactNode;
   isLast?: boolean;
 }
 
@@ -33,13 +40,20 @@ export function SettingsRow({
   const content = (
     <View style={[styles.row, !isLast && styles.rowBorder]}>
       <Text style={styles.label}>{label}</Text>
-      {right ?? (value ? <Text style={styles.value}>{value}</Text> : null)}
+      <View style={styles.rowRight}>
+        {right ?? (value ? <Text style={styles.value}>{value}</Text> : null)}
+        {onPress ? <Text style={styles.chevron}>›</Text> : null}
+      </View>
     </View>
   );
 
   if (!onPress) return content;
 
-  return <Pressable onPress={onPress}>{content}</Pressable>;
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button">
+      {content}
+    </Pressable>
+  );
 }
 
 export function SettingsToggle({
@@ -50,80 +64,79 @@ export function SettingsToggle({
 }: {
   label: string;
   enabled: boolean;
-  onToggle: () => void;
+  onToggle: (value: boolean) => void;
   isLast?: boolean;
 }) {
   return (
-    <Pressable
-      onPress={onToggle}
-      style={[styles.row, !isLast && styles.rowBorder]}
-    >
+    <View style={[styles.row, !isLast && styles.rowBorder]}>
       <Text style={styles.label}>{label}</Text>
-      <View style={[styles.toggle, enabled && styles.toggleOn]}>
-        <Text style={styles.toggleText}>{enabled ? "On" : "Off"}</Text>
-      </View>
-    </Pressable>
+      <Switch
+        value={enabled}
+        onValueChange={onToggle}
+        thumbColor="#ffffff"
+        trackColor={{ false: "#2a2a3a", true: colors.accent }}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   section: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   title: {
-    color: uiTheme.textSecondary,
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11,
+    color: colors.secondary,
+    fontWeight: "600",
+    letterSpacing: 0.8,
     textTransform: "uppercase",
-    letterSpacing: 0.6,
-    marginBottom: 8,
-    marginLeft: 4,
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 8,
   },
   card: {
-    backgroundColor: uiTheme.surface1,
-    borderRadius: uiTheme.radiusCard,
-    borderWidth: 1,
-    borderColor: uiTheme.border,
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    marginHorizontal: 16,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.separator,
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 12,
-    paddingHorizontal: 14,
     paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 12,
   },
   rowBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: uiTheme.border,
+    borderBottomColor: colors.separator,
+  },
+  rowRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 1,
+    justifyContent: "flex-end",
   },
   label: {
-    color: uiTheme.textPrimary,
     fontSize: 15,
+    color: colors.primary,
+    fontWeight: "400",
     flex: 1,
   },
   value: {
-    color: uiTheme.accent,
-    fontWeight: "600",
-    fontSize: 14,
+    fontSize: 15,
+    color: colors.secondary,
     fontVariant: ["tabular-nums"],
+    flexShrink: 1,
+    textAlign: "right",
   },
-  toggle: {
-    borderWidth: 1,
-    borderColor: uiTheme.border,
-    borderRadius: uiTheme.radiusPill,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    backgroundColor: uiTheme.surface2,
-  },
-  toggleOn: {
-    borderColor: uiTheme.success,
-    backgroundColor: `${uiTheme.success}22`,
-  },
-  toggleText: {
-    color: uiTheme.textPrimary,
-    fontWeight: "700",
-    fontSize: 12,
+  chevron: {
+    fontSize: 18,
+    color: colors.chevron,
+    lineHeight: 18,
   },
 });

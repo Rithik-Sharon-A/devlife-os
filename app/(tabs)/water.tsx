@@ -1,5 +1,5 @@
 import { format, subDays } from "date-fns";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
   RefreshControl,
@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useCelebrationContext } from "../../components/providers/CelebrationProvider";
 import { BottleDisplay } from "../../components/water/BottleDisplay";
 import { WaterLogHistory } from "../../components/water/WaterLogHistory";
 import { BottomSheet } from "../../components/ui/BottomSheet";
@@ -18,7 +19,6 @@ import { Card } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
 import { uiTheme } from "../../components/ui/theme";
 import { useAI } from "../../hooks/useAI";
-import { usePedometer } from "../../hooks/usePedometer";
 import { useAppStore } from "../../store/useAppStore";
 import { getLast7Days } from "../../utils/date";
 import * as storage from "../../utils/storage";
@@ -63,6 +63,7 @@ function expectedBottlesByNow(goalBottles: number, hour: number): number {
 }
 
 export default function WaterScreen() {
+  const { celebrate } = useCelebrationContext();
   const waterLog = useAppStore((s) => s.waterLog);
   const waterConfig = useAppStore((s) => s.waterConfig);
   const aiConfig = useAppStore((s) => s.aiConfig);
@@ -72,7 +73,6 @@ export default function WaterScreen() {
   const recalculateDayScore = useAppStore((s) => s.recalculateDayScore);
 
   const { getWaterNudge } = useAI();
-  const { syncSteps } = usePedometer();
 
   const [refreshing, setRefreshing] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
@@ -150,20 +150,32 @@ export default function WaterScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await syncSteps();
       recalculateDayScore();
     } finally {
       setRefreshing(false);
     }
-  }, [recalculateDayScore, syncSteps]);
+  }, [recalculateDayScore]);
 
-  const logFull = () => logWaterMl(bottleSize);
-  const logHalf = () => logWaterMl(Math.round(bottleSize / 2));
+  const logWaterWithCelebration = useCallback(
+    (ml: number) => {
+      const prevBottles = waterLog?.bottleCount ?? 0;
+      const goal = waterConfig.dailyGoalBottles;
+      logWaterMl(ml);
+      const nextBottles = prevBottles + ml / waterConfig.bottleSizeMl;
+      if (prevBottles < goal && nextBottles >= goal) {
+        celebrate("water_goal");
+      }
+    },
+    [celebrate, logWaterMl, waterConfig.bottleSizeMl, waterConfig.dailyGoalBottles, waterLog?.bottleCount]
+  );
+
+  const logFull = () => logWaterWithCelebration(bottleSize);
+  const logHalf = () => logWaterWithCelebration(Math.round(bottleSize / 2));
 
   const submitCustom = () => {
     const ml = Number(customMl);
     if (!Number.isNaN(ml) && ml > 0) {
-      logWaterMl(ml);
+      logWaterWithCelebration(ml);
       setCustomMl("");
       setCustomOpen(false);
     }

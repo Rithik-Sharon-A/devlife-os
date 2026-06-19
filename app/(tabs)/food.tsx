@@ -1,5 +1,6 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -14,10 +15,12 @@ import { CalorieBar } from "../../components/food/CalorieBar";
 import { MacroPills } from "../../components/food/MacroPills";
 import { MealSection } from "../../components/food/MealSection";
 import { NutritionSummary } from "../../components/food/NutritionSummary";
+import { useCelebrationContext } from "../../components/providers/CelebrationProvider";
 import { Badge } from "../../components/ui/Badge";
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
+import { AnimatedCard } from "../../components/ui/MicroAnimations";
 import { uiTheme } from "../../components/ui/theme";
 import { useAI } from "../../hooks/useAI";
 import { useAppStore } from "../../store/useAppStore";
@@ -135,6 +138,7 @@ function estimateFiber(carbs: number, entryCount: number): number {
 }
 
 export default function FoodScreen() {
+  const { celebrate } = useCelebrationContext();
   const profile = useAppStore((s) => s.profile);
   const aiConfig = useAppStore((s) => s.aiConfig);
   const todayFoodLog = useAppStore((s) => s.todayFoodLog);
@@ -168,9 +172,35 @@ export default function FoodScreen() {
     hour >= 20 && remaining > 500 && !isOverGoal;
 
   const [frequentFoods, setFrequentFoods] = useState<FrequentFood[]>([]);
+  const prevEntryCountRef = useRef(todayFoodLog.entries.length);
+
   useEffect(() => {
     void loadFrequentFoods().then(setFrequentFoods);
   }, [todayFoodLog.entries.length]);
+
+  useEffect(() => {
+    if (todayFoodLog.entries.length <= prevEntryCountRef.current) {
+      prevEntryCountRef.current = todayFoodLog.entries.length;
+      return;
+    }
+
+    void (async () => {
+      if (prevEntryCountRef.current === 0) {
+        const firstDone = await AsyncStorage.getItem("dayos:first_food_done");
+        if (!firstDone) {
+          celebrate("first_food");
+          await AsyncStorage.setItem("dayos:first_food_done", "1");
+        }
+      }
+
+      const diff = Math.abs(calorieGoal - todayFoodLog.totalCalories);
+      if (diff <= 50 && todayFoodLog.totalCalories >= calorieGoal - 50) {
+        celebrate("calorie_goal");
+      }
+    })();
+
+    prevEntryCountRef.current = todayFoodLog.entries.length;
+  }, [calorieGoal, celebrate, todayFoodLog.entries.length, todayFoodLog.totalCalories]);
 
   const parsedSuggestions = useMemo(
     () => (suggestionText ? parseMealSuggestions(suggestionText) : []),
@@ -265,13 +295,14 @@ export default function FoodScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {MEALS.map((meal) => (
-          <MealSection
-            key={meal.type}
-            mealType={meal.type}
-            title={meal.title}
-            onAddPress={() => openAddSheet(meal.type)}
-          />
+        {MEALS.map((meal, index) => (
+          <AnimatedCard key={meal.type} delay={index * 60}>
+            <MealSection
+              mealType={meal.type}
+              title={meal.title}
+              onAddPress={() => openAddSheet(meal.type)}
+            />
+          </AnimatedCard>
         ))}
 
         {frequentFoods.length > 0 ? (

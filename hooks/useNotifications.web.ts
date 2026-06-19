@@ -4,14 +4,15 @@
 export const useNotifications = () => {
   const requestPermission = async () => false;
 
-  const scheduleLocalNotification = async () => {};
+  const scheduleLocal = async () => {};
 
   const cancelAll = async () => {};
 
   return {
     requestPermission,
-    scheduleLocalNotification,
+    scheduleLocal,
     cancelAll,
+    isSupported: false,
   };
 };
 

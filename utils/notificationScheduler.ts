@@ -1,231 +1,205 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Notifications from "expo-notifications";
+import { Platform } from "react-native";
 
-import { useAppStore } from "../store/useAppStore";
 import type { NotificationConfig } from "../types";
 
-const SCHEDULED_IDS_KEY = "dayos:notif:scheduled-ids";
-
-type NotificationCategory = "water" | "meal" | "evening" | "morning" | "focus";
-
-interface StoredNotificationIds {
-  water: string[];
-  meal: string[];
-  evening: string[];
-  morning: string[];
-  focus: string[];
-}
-
-const EMPTY_IDS: StoredNotificationIds = {
-  water: [],
-  meal: [],
-  evening: [],
-  morning: [],
-  focus: [],
+// Check if we are in Expo Go
+// Expo Go does not support push notifications
+const isExpoGo = (): boolean => {
+  try {
+    const Constants = require("expo-constants").default;
+    return (
+      Constants.appOwnership === "expo" ||
+      Constants.executionEnvironment === "storeClient"
+    );
+  } catch {
+    return true; // assume Expo Go if unsure
+  }
 };
 
-async function loadScheduledIds(): Promise<StoredNotificationIds> {
+// Safe wrapper - never crashes
+const getNotif = () => {
+  if (Platform.OS === "web") return null;
+  if (isExpoGo()) return null;
   try {
-    const raw = await AsyncStorage.getItem(SCHEDULED_IDS_KEY);
-    if (!raw) return { ...EMPTY_IDS };
-    return { ...EMPTY_IDS, ...JSON.parse(raw) };
+    return require("expo-notifications");
   } catch {
-    return { ...EMPTY_IDS };
+    return null;
   }
-}
+};
 
-function saveScheduledIds(ids: StoredNotificationIds): void {
-  void AsyncStorage.setItem(SCHEDULED_IDS_KEY, JSON.stringify(ids));
-}
-
-function parseTime(time: string): { hour: number; minute: number } {
-  const [hour, minute] = time.split(":").map(Number);
-  return {
-    hour: Number.isFinite(hour) ? hour : 9,
-    minute: Number.isFinite(minute) ? minute : 0,
-  };
-}
-
-async function cancelCategory(category: NotificationCategory): Promise<void> {
-  const ids = await loadScheduledIds();
-  await Promise.all(
-    ids[category].map((id) => Notifications.cancelScheduledNotificationAsync(id))
-  );
-  ids[category] = [];
-  saveScheduledIds(ids);
-}
-
-function isWaterGoalMet(): boolean {
-  const { waterLog, waterConfig } = useAppStore.getState();
-  if (!waterLog) return false;
-  return waterLog.bottleCount >= waterConfig.dailyGoalBottles;
-}
-
-export async function requestNotificationPermission(): Promise<boolean> {
+export const requestNotificationPermission = async (): Promise<boolean> => {
+  const Notif = getNotif();
+  if (!Notif) return false;
   try {
-    const existing = await Notifications.getPermissionsAsync();
-    if (existing.granted) return true;
-    const result = await Notifications.requestPermissionsAsync();
-    return result.granted;
+    const { status } = await Notif.requestPermissionsAsync();
+    return status === "granted";
   } catch {
     return false;
   }
-}
+};
 
+export const scheduleWaterReminder = async (times: string[]): Promise<void> => {
+  const Notif = getNotif();
+  if (!Notif) return;
+  try {
+    await Notif.cancelAllScheduledNotificationsAsync();
+    for (const time of times) {
+      const [h, m] = time.split(":").map(Number);
+      await Notif.scheduleNotificationAsync({
+        content: {
+          title: "💧 Water Reminder",
+          body: "Time to drink water!",
+        },
+        trigger: {
+          hour: h,
+          minute: m,
+          repeats: true,
+        },
+      });
+    }
+  } catch (e) {
+    console.log("Notification skipped:", e);
+  }
+};
 
-async function scheduleWaterReminder(times: string[]): Promise<void> {
-  await cancelCategory("water");
-  if (isWaterGoalMet()) return;
-
-  const granted = await requestNotificationPermission();
-  if (!granted) return;
-
-  const ids = await loadScheduledIds();
-  for (const time of times) {
-    const { hour, minute } = parseTime(time);
-    const id = await Notifications.scheduleNotificationAsync({
+export const scheduleMealReminder = async (
+  meal: string,
+  time: string
+): Promise<void> => {
+  const Notif = getNotif();
+  if (!Notif) return;
+  try {
+    const [h, m] = time.split(":").map(Number);
+    await Notif.scheduleNotificationAsync({
       content: {
-        title: "Hydration check 💧",
-        body: "Log a bottle in DayOS — your water goal is waiting.",
-        data: { category: "water" },
+        title: `🍽️ ${meal} time`,
+        body: `Log your ${meal.toLowerCase()}!`,
       },
-      trigger: { hour, minute, repeats: true },
+      trigger: { hour: h, minute: m, repeats: true },
     });
-    ids.water.push(id);
+  } catch (e) {
+    console.log("Notification skipped:", e);
   }
-  saveScheduledIds(ids);
-}
+};
 
-async function scheduleMealReminders(
-  config: NotificationConfig["mealReminder"]
-): Promise<void> {
-  await cancelCategory("meal");
-  if (!config.enabled) return;
-
-  const granted = await requestNotificationPermission();
-  if (!granted) return;
-
-  const ids = await loadScheduledIds();
-  const meals: Array<{ time: string; title: string; body: string }> = [
-    {
-      time: config.breakfastTime,
-      title: "Breakfast time 🍳",
-      body: "Log your morning meal in DayOS.",
-    },
-    {
-      time: config.lunchTime,
-      title: "Lunch check-in 🍛",
-      body: "Track lunch calories while they're fresh.",
-    },
-    {
-      time: config.dinnerTime,
-      title: "Dinner reminder 🥗",
-      body: "Log dinner to keep your calorie score accurate.",
-    },
-  ];
-
-  for (const meal of meals) {
-    const { hour, minute } = parseTime(meal.time);
-    const id = await Notifications.scheduleNotificationAsync({
-      content: { title: meal.title, body: meal.body, data: { category: "meal" } },
-      trigger: { hour, minute, repeats: true },
+export const scheduleEveningCheckin = async (time: string): Promise<void> => {
+  const Notif = getNotif();
+  if (!Notif) return;
+  try {
+    const [h, m] = time.split(":").map(Number);
+    await Notif.scheduleNotificationAsync({
+      content: {
+        title: "🌙 Evening check-in",
+        body: "How did today go?",
+      },
+      trigger: { hour: h, minute: m, repeats: true },
     });
-    ids.meal.push(id);
+  } catch (e) {
+    console.log("Notification skipped:", e);
   }
-  saveScheduledIds(ids);
-}
+};
 
-async function scheduleEveningCheckin(time: string): Promise<void> {
-  await cancelCategory("evening");
-  const granted = await requestNotificationPermission();
-  if (!granted) return;
+export const scheduleMorningBriefing = async (time: string): Promise<void> => {
+  const Notif = getNotif();
+  if (!Notif) return;
+  try {
+    const [h, m] = time.split(":").map(Number);
+    await Notif.scheduleNotificationAsync({
+      content: {
+        title: "☀️ Good morning!",
+        body: "Open DayOS to start your day.",
+      },
+      trigger: { hour: h, minute: m, repeats: true },
+    });
+  } catch (e) {
+    console.log("Notification skipped:", e);
+  }
+};
 
-  const { hour, minute } = parseTime(time);
-  const ids = await loadScheduledIds();
-  const id = await Notifications.scheduleNotificationAsync({
-    content: {
-      title: "Evening check-in 🌙",
-      body: "Review your day score, habits, and mood in DayOS.",
-      data: { category: "evening" },
-    },
-    trigger: { hour, minute, repeats: true },
-  });
-  ids.evening.push(id);
-  saveScheduledIds(ids);
-}
-
-async function scheduleMorningBriefing(time: string): Promise<void> {
-  await cancelCategory("morning");
-  const granted = await requestNotificationPermission();
-  if (!granted) return;
-
-  const { hour, minute } = parseTime(time);
-  const ids = await loadScheduledIds();
-  const id = await Notifications.scheduleNotificationAsync({
-    content: {
-      title: "Good morning ☀️",
-      body: "Open DayOS for your morning nudge and daily plan.",
-      data: { category: "morning" },
-    },
-    trigger: { hour, minute, repeats: true },
-  });
-  ids.morning.push(id);
-  saveScheduledIds(ids);
-}
-
-async function scheduleFocusReminder(time: string): Promise<void> {
-  await cancelCategory("focus");
-  const granted = await requestNotificationPermission();
-  if (!granted) return;
-
-  const { hour, minute } = parseTime(time);
-  const ids = await loadScheduledIds();
-  const id = await Notifications.scheduleNotificationAsync({
-    content: {
-      title: "Focus block 🎯",
-      body: "Start a Pomodoro session and tackle your MIT.",
-      data: { category: "focus" },
-    },
-    trigger: { hour, minute, repeats: true },
-  });
-  ids.focus.push(id);
-  saveScheduledIds(ids);
-}
+export const cancelAllNotifications = async (): Promise<void> => {
+  const Notif = getNotif();
+  if (!Notif) return;
+  try {
+    await Notif.cancelAllScheduledNotificationsAsync();
+  } catch {}
+};
 
 export async function scheduleNotificationsFromConfig(
   config: NotificationConfig
 ): Promise<void> {
+  const Notif = getNotif();
+  if (!Notif) return;
+
   try {
-    if (config.waterReminder.enabled && !isWaterGoalMet()) {
-      await scheduleWaterReminder(config.waterReminder.times);
-    } else {
-      await cancelCategory("water");
+    const granted = await requestNotificationPermission();
+    if (!granted) return;
+
+    await Notif.cancelAllScheduledNotificationsAsync();
+
+    if (config.waterReminder.enabled) {
+      for (const time of config.waterReminder.times) {
+        const [h, m] = time.split(":").map(Number);
+        await Notif.scheduleNotificationAsync({
+          content: {
+            title: "💧 Water Reminder",
+            body: "Time to drink water!",
+          },
+          trigger: { hour: h, minute: m, repeats: true },
+        });
+      }
     }
 
     if (config.mealReminder.enabled) {
-      await scheduleMealReminders(config.mealReminder);
-    } else {
-      await cancelCategory("meal");
+      const meals = [
+        { meal: "Breakfast", time: config.mealReminder.breakfastTime },
+        { meal: "Lunch", time: config.mealReminder.lunchTime },
+        { meal: "Dinner", time: config.mealReminder.dinnerTime },
+      ];
+      for (const { meal, time } of meals) {
+        const [h, m] = time.split(":").map(Number);
+        await Notif.scheduleNotificationAsync({
+          content: {
+            title: `🍽️ ${meal} time`,
+            body: `Log your ${meal.toLowerCase()}!`,
+          },
+          trigger: { hour: h, minute: m, repeats: true },
+        });
+      }
     }
 
     if (config.eveningCheckin.enabled) {
-      await scheduleEveningCheckin(config.eveningCheckin.time);
-    } else {
-      await cancelCategory("evening");
+      const [h, m] = config.eveningCheckin.time.split(":").map(Number);
+      await Notif.scheduleNotificationAsync({
+        content: {
+          title: "🌙 Evening check-in",
+          body: "How did today go?",
+        },
+        trigger: { hour: h, minute: m, repeats: true },
+      });
     }
 
     if (config.morningBriefing.enabled) {
-      await scheduleMorningBriefing(config.morningBriefing.time);
-    } else {
-      await cancelCategory("morning");
+      const [h, m] = config.morningBriefing.time.split(":").map(Number);
+      await Notif.scheduleNotificationAsync({
+        content: {
+          title: "☀️ Good morning!",
+          body: "Open DayOS to start your day.",
+        },
+        trigger: { hour: h, minute: m, repeats: true },
+      });
     }
 
     if (config.focusReminder.enabled) {
-      await scheduleFocusReminder(config.focusReminder.time);
-    } else {
-      await cancelCategory("focus");
+      const [h, m] = config.focusReminder.time.split(":").map(Number);
+      await Notif.scheduleNotificationAsync({
+        content: {
+          title: "🎯 Focus block",
+          body: "Start a Pomodoro session and tackle your MIT.",
+        },
+        trigger: { hour: h, minute: m, repeats: true },
+      });
     }
-  } catch {
-    // Notification scheduling failed silently — local notifications may not be available
+  } catch (e) {
+    console.log("Notification skipped:", e);
   }
 }

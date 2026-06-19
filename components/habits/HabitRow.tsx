@@ -5,6 +5,7 @@ import {
   getCurrentStreak,
   getLast7DayCompletion,
 } from "../../utils/habitStreak";
+import { HabitCheckbox, PulsingFire } from "../ui/MicroAnimations";
 import { StreakDots } from "../ui/StreakDots";
 import { uiTheme } from "../ui/theme";
 
@@ -41,20 +42,16 @@ export function HabitRow({
       onLongPress={onLongPress}
       style={[styles.row, done && styles.rowDone]}
     >
-      <Pressable
-        onPress={onToggle}
-        style={[styles.checkbox, done && { borderColor: habit.color, backgroundColor: `${habit.color}33` }]}
-        hitSlop={8}
-      >
-        {done ? <Text style={styles.check}>✓</Text> : null}
-      </Pressable>
+      <HabitCheckbox checked={done} onToggle={onToggle} accentColor={habit.color} />
 
       <View style={styles.body}>
         <View style={styles.titleRow}>
           <Text style={styles.icon}>{habit.icon}</Text>
           <Text style={[styles.name, done && styles.nameDone]}>{habit.name}</Text>
         </View>
-        <Text style={styles.streak}>🔥 {streak} day{streak === 1 ? "" : "s"}</Text>
+        <View style={styles.streakRow}>
+          <PulsingFire count={streak} size={18} />
+        </View>
         <StreakDots last7Days={last7} streakCount={streak} />
       </View>
     </Pressable>
@@ -72,21 +69,6 @@ const styles = StyleSheet.create({
   },
   rowDone: {
     opacity: 0.72,
-  },
-  checkbox: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: uiTheme.border,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 2,
-  },
-  check: {
-    color: uiTheme.textPrimary,
-    fontWeight: "800",
-    fontSize: 16,
   },
   body: {
     flex: 1,
@@ -110,9 +92,8 @@ const styles = StyleSheet.create({
     textDecorationLine: "line-through",
     color: uiTheme.textSecondary,
   },
-  streak: {
-    color: uiTheme.textSecondary,
-    fontSize: 12,
-    fontWeight: "600",
+  streakRow: {
+    flexDirection: "row",
+    alignItems: "center",
   },
 });

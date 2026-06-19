@@ -1,20 +1,26 @@
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { finishOnboarding } from "../../store/finishOnboarding";
-import { useAppStore } from "../../store/useAppStore";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { Badge } from "../../components/ui/Badge";
+import { ModelPicker } from "../../components/settings/ModelPicker";
+import { OnboardingShell } from "../../components/onboarding/OnboardingShell";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
+import { BottomSheet } from "../../components/ui/BottomSheet";
 import { uiTheme } from "../../components/ui/theme";
-import { getProvider, PROVIDERS } from "../../data/providers";
-import type { AIProvider } from "../../types";
+import {
+  findProviderModel,
+  getDefaultModelForProvider,
+  getProvider,
+  PROVIDERS,
+} from "../../data/providers";
+import { finishOnboarding } from "../../store/finishOnboarding";
+import { useAppStore } from "../../store/useAppStore";
 import { useOnboardingStore } from "../../store/useOnboardingStore";
-import { OnboardingShell } from "../../components/onboarding/OnboardingShell";
-import { useOnboardingStep } from "./_layout";
+import type { AIProvider } from "../../types";
 import { testAIConnection } from "../../utils/onboarding/testAIConnection";
+import { useOnboardingStep } from "./_layout";
 
 const PROVIDER_ORDER: AIProvider[] = [
   "groq",
@@ -25,18 +31,9 @@ const PROVIDER_ORDER: AIProvider[] = [
   "ollama",
 ];
 
-const PROVIDER_ICONS: Record<AIProvider, string> = {
-  groq: "⚡",
-  openrouter: "🌐",
-  openai: "🤖",
-  anthropic: "🧠",
-  gemini: "✨",
-  ollama: "🦙",
-};
-
 function providerBadge(id: AIProvider): string | null {
-  if (id === "groq") return "⚡ Free & Fastest";
-  if (id === "openrouter") return "🌐 200+ models";
+  if (id === "groq") return "Free & fastest";
+  if (id === "openrouter") return "200+ models";
   if (PROVIDERS[id].freeModelsAvailable) return "Free available";
   return null;
 }
@@ -60,6 +57,7 @@ export default function OnboardingAI() {
   const { updateDraft, completeOnboarding } = useOnboardingStore();
 
   const [showFinish, setShowFinish] = useState(false);
+  const [modelSheetOpen, setModelSheetOpen] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
@@ -68,21 +66,18 @@ export default function OnboardingAI() {
     ? getProvider(draft.aiProvider)
     : null;
 
-  const defaultModel = useMemo(() => {
-    if (!selectedProvider) return "";
-    const free = selectedProvider.models.find((m) => m.isFree);
-    return free?.id ?? selectedProvider.models[0]?.id ?? "";
-  }, [selectedProvider]);
+  const activeModelId = draft.aiModel || (draft.aiProvider ? getDefaultModelForProvider(draft.aiProvider) : "");
+  const activeModel = useMemo(() => {
+    if (!draft.aiProvider || !activeModelId) return null;
+    return findProviderModel(draft.aiProvider, activeModelId);
+  }, [draft.aiProvider, activeModelId]);
 
   const selectProvider = (id: AIProvider) => {
-    const provider = getProvider(id);
-    const model =
-      provider.models.find((m) => m.isFree)?.id ?? provider.models[0]?.id ?? "";
     setTestResult(null);
     setTestError(null);
     updateDraft({
       aiProvider: id,
-      aiModel: model,
+      aiModel: getDefaultModelForProvider(id),
       aiSkipped: false,
       aiApiKey: "",
     });
@@ -94,7 +89,7 @@ export default function OnboardingAI() {
     setTestResult(null);
     setTestError(null);
 
-    const model = draft.aiModel || defaultModel;
+    const model = activeModelId;
     const result = await testAIConnection(draft.aiProvider, draft.aiApiKey, model);
 
     setTesting(false);
@@ -118,7 +113,7 @@ export default function OnboardingAI() {
     if (provider.requiresKey && !draft.aiApiKey.trim()) return;
     updateDraft({
       aiSkipped: false,
-      aiModel: draft.aiModel || defaultModel,
+      aiModel: activeModelId,
     });
     setShowFinish(true);
   };
@@ -135,7 +130,7 @@ export default function OnboardingAI() {
   if (showFinish) {
     return (
       <OnboardingShell step={step} showBack={false}>
-        <Text style={styles.finishTitle}>You're all set, {draft.name}! 🎉</Text>
+        <Text style={styles.finishTitle}>You're all set, {draft.name}!</Text>
         <Text style={styles.finishSubtitle}>
           Your profile is saved locally. Let's make today count.
         </Text>
@@ -206,16 +201,8 @@ export default function OnboardingAI() {
                 variant={active ? "elevated" : "bordered"}
                 style={[styles.providerCard, active && styles.providerCardActive]}
               >
-                <View style={styles.providerHeader}>
-                  <Text style={styles.providerIcon}>{PROVIDER_ICONS[id]}</Text>
-                  <Text style={styles.providerName}>{provider.displayName}</Text>
-                </View>
-                {badge ? (
-                  <Badge
-                    label={badge}
-                    color={id === "groq" ? uiTheme.warning : uiTheme.accent}
-                  />
-                ) : null}
+                <Text style={styles.providerName}>{provider.displayName}</Text>
+                {badge ? <Text style={styles.providerBadge}>{badge}</Text> : null}
               </Card>
             </Pressable>
           );
@@ -239,25 +226,19 @@ export default function OnboardingAI() {
             />
           ) : null}
 
-          <Text style={styles.modelLabel}>Model</Text>
-          <View style={styles.modelChips}>
-            {selectedProvider.models.slice(0, 4).map((model) => {
-              const active = (draft.aiModel || defaultModel) === model.id;
-              return (
-                <Pressable
-                  key={model.id}
-                  onPress={() => updateDraft({ aiModel: model.id })}
-                  style={[styles.modelChip, active && styles.modelChipActive]}
-                >
-                  <Text
-                    style={[styles.modelChipText, active && styles.modelChipTextActive]}
-                  >
-                    {model.displayName}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <Pressable
+            style={styles.modelRow}
+            onPress={() => setModelSheetOpen(true)}
+            accessibilityRole="button"
+          >
+            <Text style={styles.modelRowLabel}>Model</Text>
+            <View style={styles.modelRowRight}>
+              <Text style={styles.modelRowValue} numberOfLines={1}>
+                {activeModel?.displayName ?? "Select model"}
+              </Text>
+              <Text style={styles.chevron}>›</Text>
+            </View>
+          </Pressable>
 
           <Button
             label="Test Connection"
@@ -267,10 +248,10 @@ export default function OnboardingAI() {
           />
 
           {testResult === "success" ? (
-            <Text style={styles.testSuccess}>✓ Working</Text>
+            <Text style={styles.testSuccess}>Connection successful</Text>
           ) : null}
           {testResult === "error" ? (
-            <Text style={styles.testError}>✗ {testError ?? "Connection failed"}</Text>
+            <Text style={styles.testError}>{testError ?? "Connection failed"}</Text>
           ) : null}
         </View>
       ) : null}
@@ -278,6 +259,24 @@ export default function OnboardingAI() {
       <Pressable onPress={onSkip} style={styles.skipBtn}>
         <Text style={styles.skipText}>Skip for now</Text>
       </Pressable>
+
+      {draft.aiProvider ? (
+        <BottomSheet
+          visible={modelSheetOpen}
+          onClose={() => setModelSheetOpen(false)}
+          title="Select Model"
+          height="full"
+        >
+          <ModelPicker
+            providerId={draft.aiProvider}
+            selectedModelId={activeModelId}
+            onSelect={(modelId) => {
+              updateDraft({ aiModel: modelId });
+              setModelSheetOpen(false);
+            }}
+          />
+        </BottomSheet>
+      ) : null}
     </OnboardingShell>
   );
 }
@@ -295,7 +294,7 @@ const styles = StyleSheet.create({
   title: {
     color: uiTheme.textPrimary,
     fontSize: 28,
-    fontWeight: "800",
+    fontWeight: "700",
     marginTop: 12,
   },
   subtitle: {
@@ -306,27 +305,24 @@ const styles = StyleSheet.create({
   },
   providerGrid: {
     marginTop: 20,
-    gap: 10,
-  },
-  providerCard: {
     gap: 8,
   },
+  providerCard: {
+    gap: 4,
+    paddingVertical: 12,
+  },
   providerCardActive: {
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: uiTheme.accent,
-  },
-  providerHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  providerIcon: {
-    fontSize: 22,
   },
   providerName: {
     color: uiTheme.textPrimary,
-    fontWeight: "700",
-    fontSize: 16,
+    fontWeight: "600",
+    fontSize: 15,
+  },
+  providerBadge: {
+    color: uiTheme.textSecondary,
+    fontSize: 12,
   },
   setup: {
     marginTop: 20,
@@ -334,47 +330,50 @@ const styles = StyleSheet.create({
   },
   setupTitle: {
     color: uiTheme.textPrimary,
-    fontWeight: "700",
-    fontSize: 16,
+    fontWeight: "600",
+    fontSize: 15,
   },
   instructions: {
     color: uiTheme.textSecondary,
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  modelLabel: {
-    color: uiTheme.textSecondary,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  modelChips: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  modelChip: {
-    borderWidth: 1,
-    borderColor: uiTheme.border,
-    borderRadius: uiTheme.radiusPill,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: uiTheme.surface2,
-  },
-  modelChipActive: {
-    borderColor: uiTheme.accent,
-    backgroundColor: uiTheme.surface3,
-  },
-  modelChipText: {
-    color: uiTheme.textSecondary,
     fontSize: 12,
-    fontWeight: "600",
+    lineHeight: 18,
   },
-  modelChipTextActive: {
-    color: uiTheme.textPrimary,
+  modelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#13131a",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#1e1e28",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  modelRowLabel: {
+    color: "#e2e8f0",
+    fontSize: 15,
+    fontWeight: "400",
+  },
+  modelRowRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 1,
+    maxWidth: "62%",
+  },
+  modelRowValue: {
+    color: "#6b7280",
+    fontSize: 15,
+    flexShrink: 1,
+    textAlign: "right",
+  },
+  chevron: {
+    fontSize: 18,
+    color: "#4a4a5a",
   },
   testSuccess: {
     color: uiTheme.success,
-    fontWeight: "700",
+    fontWeight: "600",
     fontSize: 14,
   },
   testError: {
@@ -389,15 +388,15 @@ const styles = StyleSheet.create({
   },
   skipText: {
     color: uiTheme.textSecondary,
-    fontWeight: "600",
+    fontWeight: "500",
     fontSize: 15,
   },
   finishTitle: {
     color: uiTheme.textPrimary,
-    fontSize: 30,
-    fontWeight: "800",
+    fontSize: 28,
+    fontWeight: "700",
     marginTop: 16,
-    lineHeight: 36,
+    lineHeight: 34,
   },
   finishSubtitle: {
     color: uiTheme.textSecondary,
@@ -407,7 +406,7 @@ const styles = StyleSheet.create({
   },
   summaryList: {
     marginTop: 24,
-    gap: 10,
+    gap: 8,
   },
   summaryCard: {
     marginBottom: 0,
@@ -419,8 +418,8 @@ const styles = StyleSheet.create({
   },
   summaryValue: {
     color: uiTheme.textPrimary,
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 15,
+    fontWeight: "600",
     marginTop: 4,
   },
   finishFooter: {

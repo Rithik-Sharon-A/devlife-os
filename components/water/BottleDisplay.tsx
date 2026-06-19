@@ -1,4 +1,5 @@
-import { Platform, Pressable, StyleSheet, View } from "react-native";
+import { useEffect, useRef } from "react";
+import { Animated, Platform, Pressable, StyleSheet, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 import { uiTheme } from "../ui/theme";
@@ -34,6 +35,21 @@ function BottleIcon({
   size: "md" | "lg";
 }) {
   const dims = SIZES[size];
+  const fillAnim = useRef(new Animated.Value(fill * 100)).current;
+
+  useEffect(() => {
+    Animated.spring(fillAnim, {
+      toValue: fill * 100,
+      tension: 80,
+      friction: 14,
+      useNativeDriver: false,
+    }).start();
+  }, [fill, fillAnim]);
+
+  const fillHeight = fillAnim.interpolate({
+    inputRange: [0, 100],
+    outputRange: ["0%", "100%"],
+  });
 
   return (
     <Pressable
@@ -56,9 +72,9 @@ function BottleIcon({
         </Svg>
 
         <View style={[styles.fillClip, { width: dims.width, height: dims.height }]}>
-          <View style={[styles.waterFill, { height: `${fill * 100}%` }]}>
+          <Animated.View style={[styles.waterFill, { height: fillHeight }]}>
             <View style={styles.waveSurface} />
-          </View>
+          </Animated.View>
         </View>
 
         <Svg

@@ -10,6 +10,7 @@ import {
 
 import { useTheme } from "../../context/ThemeContext";
 import { radii } from "../../utils/designTokens";
+import { BounceButton } from "./MicroAnimations";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 type ButtonSize = "sm" | "md" | "lg";
@@ -132,28 +133,38 @@ export function Button({
 
   const displayLabel = loading ? "Loading..." : label;
 
+  const content = loading ? (
+    <View style={styles.contentRow}>
+      <ActivityIndicator color="#ffffff" style={styles.icon} />
+      <Text style={[styles.text, sizeText, textStyle]}>{displayLabel}</Text>
+    </View>
+  ) : (
+    <View style={styles.contentRow}>
+      {icon ? <View style={styles.icon}>{icon}</View> : null}
+      <Text style={[styles.text, sizeText, textStyle]}>{label}</Text>
+    </View>
+  );
+
+  const buttonFace = [styles.base, sizeStyle, containerStyle];
+
+  if (variant === "primary" && !loading) {
+    return (
+      <BounceButton onPress={onPress} disabled={inactive}>
+        <View style={buttonFace}>{content}</View>
+      </BounceButton>
+    );
+  }
+
   return (
     <Pressable
       onPress={onPress}
       disabled={inactive}
       style={({ pressed }) => [
-        styles.base,
-        sizeStyle,
-        containerStyle,
+        ...buttonFace,
         pressed && !inactive && styles.pressed,
       ]}
     >
-      {loading ? (
-        <View style={styles.contentRow}>
-          <ActivityIndicator color="#ffffff" style={styles.icon} />
-          <Text style={[styles.text, sizeText, textStyle]}>{displayLabel}</Text>
-        </View>
-      ) : (
-        <View style={styles.contentRow}>
-          {icon ? <View style={styles.icon}>{icon}</View> : null}
-          <Text style={[styles.text, sizeText, textStyle]}>{label}</Text>
-        </View>
-      )}
+      {content}
     </Pressable>
   );
 }

@@ -22,13 +22,13 @@ import {
 } from "../../components/settings/SettingsSection";
 import { ModelPicker } from "../../components/settings/ModelPicker";
 import { TimePickerField } from "../../components/onboarding/TimePickerField";
-import { Badge } from "../../components/ui/Badge";
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { uiTheme } from "../../components/ui/theme";
 import { findProviderModel, PROVIDERS } from "../../data/providers";
+import { useStepCounter, type StepSensitivity } from "../../hooks/useStepCounter";
 import { useToast } from "../../hooks/useToast";
 import { useAppStore } from "../../store/useAppStore";
 import type {
@@ -114,6 +114,12 @@ export default function SettingsScreen() {
   const initializeStore = useAppStore((s) => s.initializeStore);
 
   const { showToast } = useToast();
+  const {
+    goal: stepCounterGoal,
+    updateGoal: updateStepCounterGoal,
+    sensitivity: stepSensitivity,
+    updateSensitivity,
+  } = useStepCounter();
 
   const [sheet, setSheet] = useState<SheetKind>(null);
   const [notifDraft, setNotifDraft] = useState<NotificationConfig>(notificationConfig);
@@ -260,6 +266,25 @@ export default function SettingsScreen() {
     );
   };
 
+  const confirmSignOut = () => {
+    Alert.alert(
+      "Sign out?",
+      "This clears your local data and returns you to onboarding.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sign out",
+          style: "destructive",
+          onPress: async () => {
+            clearAllDataAndRestart();
+            await initializeStore();
+            router.replace("/onboarding");
+          },
+        },
+      ]
+    );
+  };
+
   if (!profile) {
     return (
       <SafeAreaView style={styles.safe}>
@@ -274,19 +299,19 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <Text style={styles.screenTitle}>Settings</Text>
+
         <View style={styles.profileHeader}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{getInitials(profile.name)}</Text>
           </View>
           <Text style={styles.profileName}>{profile.name}</Text>
-          <Badge label={GOAL_LABELS[profile.goalType]} color={uiTheme.accent} />
+          <Text style={styles.profileMeta}>{GOAL_LABELS[profile.goalType]}</Text>
           <Button label="Edit Profile" variant="secondary" onPress={() => openSheet("profile")} />
         </View>
 
         <SettingsSection title="Appearance">
-          <View style={{ paddingHorizontal: 14, paddingBottom: 16 }}>
-            <ThemePicker />
-          </View>
+          <ThemePicker />
         </SettingsSection>
 
         <SettingsSection title="Body & Goals">
@@ -323,10 +348,8 @@ export default function SettingsScreen() {
           <SettingsToggle
             label="Manual calorie override"
             enabled={appPreferences.manualCalorieOverride}
-            onToggle={() => {
-              updateAppPreferences({
-                manualCalorieOverride: !appPreferences.manualCalorieOverride,
-              });
+            onToggle={(enabled) => {
+              updateAppPreferences({ manualCalorieOverride: enabled });
               recalculateTDEE();
               showToast("Calorie override updated");
             }}
@@ -384,19 +407,42 @@ export default function SettingsScreen() {
           />
         </SettingsSection>
 
-        <SettingsSection title="Step Counter">
+        <SettingsSection title="Health">
           <SettingsRow
             label="Daily step goal"
-            value={appPreferences.stepGoal.toLocaleString()}
-            onPress={() => openSheet("stepGoal", String(appPreferences.stepGoal))}
+            value={(stepCounterGoal || appPreferences.stepGoal).toLocaleString()}
+            onPress={() =>
+              openSheet("stepGoal", String(stepCounterGoal || appPreferences.stepGoal))
+            }
           />
+          <View style={styles.sensitivityBlock}>
+            <Text style={styles.sensitivityLabel}>Step detection sensitivity</Text>
+            <SegmentedControl
+              options={["Low", "Medium", "High"]}
+              selected={
+                stepSensitivity === "low"
+                  ? "Low"
+                  : stepSensitivity === "high"
+                    ? "High"
+                    : "Medium"
+              }
+              onChange={(label) => {
+                const level: StepSensitivity =
+                  label === "Low" ? "low" : label === "High" ? "high" : "medium";
+                void updateSensitivity(level);
+                showToast(`Sensitivity set to ${label}`);
+              }}
+            />
+          </View>
+          <Text style={styles.stepNote}>
+            Steps counted via accelerometer. Accuracy improves with regular walking.
+            Calibrate sensitivity above if steps seem over or under counted.
+          </Text>
           <SettingsToggle
             label="Show steps on dashboard"
             enabled={appPreferences.showStepsOnDashboard}
-            onToggle={() => {
-              updateAppPreferences({
-                showStepsOnDashboard: !appPreferences.showStepsOnDashboard,
-              });
+            onToggle={(enabled) => {
+              updateAppPreferences({ showStepsOnDashboard: enabled });
               showToast("Dashboard preference saved");
             }}
             isLast
@@ -405,14 +451,14 @@ export default function SettingsScreen() {
 
         <SettingsSection title="Notifications">
           <SettingsToggle
-            label="💧 Water Reminders"
+            label="Water Reminders"
             enabled={notifDraft.waterReminder.enabled}
-            onToggle={() =>
+            onToggle={(enabled) =>
               setNotifDraft((c) => ({
                 ...c,
                 waterReminder: {
                   ...c.waterReminder,
-                  enabled: !c.waterReminder.enabled,
+                  enabled,
                 },
               }))
             }
@@ -435,12 +481,12 @@ export default function SettingsScreen() {
             ))}
           </View>
           <SettingsToggle
-            label="🍽️ Meal Reminders"
+            label="Meal Reminders"
             enabled={notifDraft.mealReminder.enabled}
-            onToggle={() =>
+            onToggle={(enabled) =>
               setNotifDraft((c) => ({
                 ...c,
-                mealReminder: { ...c.mealReminder, enabled: !c.mealReminder.enabled },
+                mealReminder: { ...c.mealReminder, enabled },
               }))
             }
           />
@@ -479,14 +525,14 @@ export default function SettingsScreen() {
             </View>
           ) : null}
           <SettingsToggle
-            label="⏱️ Focus Reminder"
+            label="Focus Reminder"
             enabled={notifDraft.focusReminder.enabled}
-            onToggle={() =>
+            onToggle={(enabled) =>
               setNotifDraft((c) => ({
                 ...c,
                 focusReminder: {
                   ...c.focusReminder,
-                  enabled: !c.focusReminder.enabled,
+                  enabled,
                 },
               }))
             }
@@ -502,14 +548,14 @@ export default function SettingsScreen() {
             }
           />
           <SettingsToggle
-            label="🌙 Evening Check-in"
+            label="Evening Check-in"
             enabled={notifDraft.eveningCheckin.enabled}
-            onToggle={() =>
+            onToggle={(enabled) =>
               setNotifDraft((c) => ({
                 ...c,
                 eveningCheckin: {
                   ...c.eveningCheckin,
-                  enabled: !c.eveningCheckin.enabled,
+                  enabled,
                 },
               }))
             }
@@ -525,14 +571,14 @@ export default function SettingsScreen() {
             }
           />
           <SettingsToggle
-            label="☀️ Morning Briefing"
+            label="Morning Briefing"
             enabled={notifDraft.morningBriefing.enabled}
-            onToggle={() =>
+            onToggle={(enabled) =>
               setNotifDraft((c) => ({
                 ...c,
                 morningBriefing: {
                   ...c.morningBriefing,
-                  enabled: !c.morningBriefing.enabled,
+                  enabled,
                 },
               }))
             }
@@ -624,15 +670,13 @@ export default function SettingsScreen() {
         </SettingsSection>
 
         <SettingsSection title="Data">
-          <Pressable style={styles.actionRow} onPress={exportData}>
-            <Text style={styles.actionText}>Export all my data</Text>
-          </Pressable>
-          <Pressable style={styles.actionRow} onPress={confirmResetToday}>
-            <Text style={styles.actionText}>Reset today's data</Text>
-          </Pressable>
-          <Pressable style={[styles.actionRow, styles.actionDanger]} onPress={confirmClearAll}>
-            <Text style={styles.actionDangerText}>Clear all data / Start fresh</Text>
-          </Pressable>
+          <SettingsRow label="Export all my data" onPress={exportData} />
+          <SettingsRow label="Reset today's data" onPress={confirmResetToday} />
+          <SettingsRow
+            label="Clear all data / Start fresh"
+            onPress={confirmClearAll}
+            isLast
+          />
         </SettingsSection>
 
         <SettingsSection title="About">
@@ -640,16 +684,19 @@ export default function SettingsScreen() {
             label="App version"
             value={Constants.expoConfig?.version ?? "1.0.0"}
           />
-          <SettingsRow label="Built with" value="Expo + Claude API" isLast />
-          <Pressable
-            style={styles.actionRow}
+          <SettingsRow label="Built with" value="Expo + Claude API" />
+          <SettingsRow
+            label="Send feedback"
             onPress={() =>
               Linking.openURL("mailto:support@dayos.app?subject=DayOS%20Feedback")
             }
-          >
-            <Text style={styles.actionText}>Send feedback</Text>
-          </Pressable>
+            isLast
+          />
         </SettingsSection>
+
+        <Pressable onPress={confirmSignOut} style={styles.signOutBtn}>
+          <Text style={styles.signOutText}>Sign out</Text>
+        </Pressable>
       </ScrollView>
 
       <BottomSheet
@@ -859,8 +906,10 @@ export default function SettingsScreen() {
               onPress={() => {
                 const val = Number(editNumber);
                 if (!Number.isNaN(val) && val > 0) {
-                  updateAppPreferences({ stepGoal: Math.round(val) });
-                  updateStepGoal(Math.round(val));
+                  const rounded = Math.round(val);
+                  updateAppPreferences({ stepGoal: rounded });
+                  updateStepGoal(rounded);
+                  void updateStepCounterGoal(rounded);
                   showToast("Step goal saved");
                   closeSheet();
                 }
@@ -962,49 +1011,86 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: uiTheme.background },
-  content: { padding: 20, paddingBottom: 40 },
+  safe: { flex: 1, backgroundColor: "#0a0a0f" },
+  content: { paddingBottom: 48 },
+  screenTitle: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: "#e2e8f0",
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
   empty: { flex: 1, justifyContent: "center", padding: 24, gap: 16 },
-  emptyText: { color: uiTheme.textSecondary, textAlign: "center" },
-  profileHeader: { alignItems: "center", gap: 10, marginBottom: 24 },
+  emptyText: { color: "#6b7280", textAlign: "center" },
+  profileHeader: {
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+    paddingHorizontal: 20,
+  },
   avatar: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    backgroundColor: uiTheme.surface2,
-    borderWidth: 2,
-    borderColor: uiTheme.accent,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#13131a",
+    borderWidth: 1,
+    borderColor: "#1e1e28",
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: { color: uiTheme.accent, fontSize: 28, fontWeight: "800" },
-  profileName: { color: uiTheme.textPrimary, fontSize: 24, fontWeight: "800" },
-  inlineBtn: { padding: 12 },
-  timeList: { paddingHorizontal: 12, gap: 8, paddingBottom: 8 },
+  avatarText: { color: "#e2e8f0", fontSize: 24, fontWeight: "700" },
+  profileName: { color: "#e2e8f0", fontSize: 22, fontWeight: "700" },
+  profileMeta: { color: "#6b7280", fontSize: 14 },
+  inlineBtn: { paddingHorizontal: 16, paddingVertical: 12 },
+  timeList: { paddingHorizontal: 16, gap: 8, paddingBottom: 8 },
   aiStatusRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: uiTheme.border,
+    borderBottomColor: "#1e1e28",
   },
   statusWrap: { flexDirection: "row", alignItems: "center", gap: 8 },
-  statusDot: { width: 10, height: 10, borderRadius: 5 },
-  label: { color: uiTheme.textPrimary, fontSize: 15 },
-  value: { color: uiTheme.accent, fontWeight: "600", fontSize: 14 },
-  aiStatus: { color: uiTheme.textSecondary, marginTop: 8, fontSize: 13 },
-  unitRow: { paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
-  actionRow: {
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: uiTheme.border,
-  },
-  actionText: { color: uiTheme.accent, fontWeight: "600", fontSize: 15 },
-  actionDanger: { borderBottomWidth: 0 },
-  actionDangerText: { color: uiTheme.danger, fontWeight: "700", fontSize: 15 },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  label: { color: "#e2e8f0", fontSize: 15, fontWeight: "400" },
+  value: { color: "#6b7280", fontWeight: "400", fontSize: 15 },
+  aiStatus: { color: "#6b7280", marginTop: 8, fontSize: 12, paddingHorizontal: 16 },
+  unitRow: { paddingHorizontal: 16, paddingVertical: 14, gap: 10, borderBottomWidth: 1, borderBottomColor: "#1e1e28" },
   sheetForm: { gap: 12 },
   link: { color: uiTheme.accent, fontWeight: "600", marginBottom: 8 },
+  sensitivityBlock: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1e1e28",
+  },
+  sensitivityLabel: {
+    color: "#e2e8f0",
+    fontSize: 15,
+    fontWeight: "400",
+  },
+  stepNote: {
+    color: "#6b7280",
+    fontSize: 12,
+    lineHeight: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1e1e28",
+  },
+  signOutBtn: {
+    marginTop: 32,
+    paddingVertical: 16,
+    alignItems: "center",
+  },
+  signOutText: {
+    color: "#f87171",
+    fontSize: 16,
+    fontWeight: "500",
+    textAlign: "center",
+  },
 });

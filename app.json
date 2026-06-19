@@ -3,72 +3,63 @@
     "name": "DayOS",
     "slug": "dayos",
     "version": "1.0.0",
-    "scheme": "dayos",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#0d0f12",
+    "backgroundColor": "#0a0a0f",
     "splash": {
-      "resizeMode": "contain",
-      "backgroundColor": "#0d0f12"
+      "backgroundColor": "#0a0a0f",
+      "resizeMode": "contain"
     },
     "assetBundlePatterns": ["**/*"],
-    "plugins": [
-      "expo-router",
-      "expo-font",
-      [
-        "expo-notifications",
-        {
-          "color": "#7c6aff",
-          "sounds": []
-        }
-      ],
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Allow DayOS to access your camera for food logging."
-        }
-      ],
-      [
-        "expo-calendar",
-        {
-          "calendarPermission": "Allow DayOS to access your calendar."
-        }
-      ]
-    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.dayos.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "DayOS uses the camera to photograph meals for food logging.",
-        "NSPhotoLibraryUsageDescription": "DayOS can read photos to identify meals.",
-        "NSMotionUsageDescription": "DayOS reads motion data to count your daily steps.",
-        "NSHealthShareUsageDescription": "DayOS reads step count data from Apple Health.",
-        "NSHealthUpdateUsageDescription": "DayOS can write step and activity data to Apple Health.",
-        "UIBackgroundModes": ["remote-notification"]
+        "NSMotionUsageDescription": "DayOS counts your steps using motion sensors",
+        "NSCameraUsageDescription": "DayOS uses camera to scan food barcodes",
+        "NSCalendarsUsageDescription": "DayOS uses calendar to help plan your day",
+        "UIBackgroundModes": ["fetch"]
       }
     },
     "android": {
-      "package": "com.dayos.app",
       "adaptiveIcon": {
-        "backgroundColor": "#0d0f12"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0a0a0f"
       },
+      "package": "com.dayos.app",
+      "versionCode": 1,
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.ACTIVITY_RECOGNITION",
-        "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
-        "android.permission.POST_NOTIFICATIONS",
-        "android.permission.health.READ_STEPS",
-        "android.permission.INTERNET"
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_EXACT_ALARM"
       ]
     },
     "web": {
       "bundler": "metro",
-      "favicon": "./assets/favicon.png",
       "output": "static"
     },
-    "experiments": {
-      "typedRoutes": true
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "35.0.0"
+          }
+        }
+      ]
+    ],
+    "scheme": "dayos",
+    "extra": {
+      "eas": {
+        "projectId": "REPLACE_AFTER_EAS_INIT"
+      }
     }
   }
 }

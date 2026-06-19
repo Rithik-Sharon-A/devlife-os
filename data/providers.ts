@@ -70,7 +70,7 @@ const openRouterConfig: ProviderConfig = {
   models: [
     {
       id: "meta-llama/llama-3.1-8b-instruct:free",
-      displayName: "Llama 3.1 8B (Free)",
+      displayName: "Llama 3.1 8B Instant (Free)",
       contextWindow: 8192,
       isFree: true,
       contextSubtitle: "8K context",
@@ -765,4 +765,22 @@ export function findProviderModel(
   modelId: string
 ): ProviderModel | undefined {
   return PROVIDERS[providerId].models.find((m) => m.id === modelId);
+}
+
+const DEFAULT_MODELS: Record<AIProvider, string> = {
+  openrouter: "meta-llama/llama-3.1-8b-instruct:free",
+  groq: "llama-3.1-8b-instant",
+  openai: "gpt-4o-mini",
+  anthropic: "claude-haiku-4-5-20251001",
+  gemini: "gemini-1.5-flash",
+  ollama: "llama3",
+};
+
+export function getDefaultModelForProvider(id: AIProvider): string {
+  const preferred = DEFAULT_MODELS[id];
+  if (PROVIDERS[id].models.some((m) => m.id === preferred)) {
+    return preferred;
+  }
+  const free = PROVIDERS[id].models.find((m) => m.isFree);
+  return free?.id ?? PROVIDERS[id].models[0]?.id ?? "";
 }

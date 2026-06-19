@@ -35,8 +35,8 @@ export async function finishOnboarding(
   try {
     await requestNotificationPermission();
     await scheduleNotificationsFromConfig(notificationConfig);
-  } catch {
-    // never crash on permission errors
+  } catch (e) {
+    console.log("Skipping notifications:", e);
   }
 
   app.updateAppPreferences({

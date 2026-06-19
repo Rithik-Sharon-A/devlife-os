@@ -1,14 +1,13 @@
 import { Tabs } from "expo-router";
+import * as Haptics from "expo-haptics";
 import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AIChatSheet } from "../../components/ai/AIChatSheet";
 import { useTheme } from "../../context/ThemeContext";
 import { useAppStore } from "../../store/useAppStore";
-import { radii, spacing } from "../../utils/designTokens";
 import { isAIConfigured } from "../../utils/ai";
-import { shadows } from "../../utils/styles";
 
 const TAB_ICONS: Record<string, string> = {
   index: "🏠",
@@ -19,7 +18,8 @@ const TAB_ICONS: Record<string, string> = {
   settings: "⚙️",
 };
 
-const TAB_BAR_HEIGHT = 56;
+const TAB_BAR_HEIGHT = 60;
+const INACTIVE_COLOR = "#4a4a5a";
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
@@ -37,20 +37,36 @@ export default function TabLayout() {
           flex: 1,
           backgroundColor: colors.background,
         },
+        tabIconWrap: {
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: 28,
+        },
         tabIcon: {
           fontSize: 22,
         },
+        activeDot: {
+          width: 4,
+          height: 4,
+          borderRadius: 2,
+          backgroundColor: colors.accent,
+          marginTop: 2,
+        },
         fab: {
           position: "absolute",
-          right: spacing.lg,
-          width: 56,
-          height: 56,
-          borderRadius: radii.pill,
+          left: 20,
+          width: 52,
+          height: 52,
+          borderRadius: 26,
           backgroundColor: colors.accent,
           alignItems: "center",
           justifyContent: "center",
-          ...shadows.fab,
-          zIndex: 50,
+          shadowColor: colors.accent,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.4,
+          shadowRadius: 12,
+          elevation: 8,
+          zIndex: 999,
         },
         fabIcon: {
           fontSize: 24,
@@ -62,27 +78,37 @@ export default function TabLayout() {
   return (
     <View style={styles.container}>
       <Tabs
+        screenListeners={{
+          tabPress: () => {
+            if (Platform.OS !== "web") {
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+          },
+        }}
         screenOptions={({ route }) => ({
           headerShown: false,
           tabBarShowLabel: true,
           tabBarActiveTintColor: colors.accent,
-          tabBarInactiveTintColor: colors.textSecondary,
+          tabBarInactiveTintColor: INACTIVE_COLOR,
           tabBarLabelStyle: {
             fontSize: 11,
             fontWeight: "600",
           },
           tabBarStyle: {
-            backgroundColor: colors.tabBar,
-            borderTopColor: colors.border,
+            backgroundColor: "#0f0f16",
+            borderTopColor: "#1a1a24",
             borderTopWidth: 1,
             height: TAB_BAR_HEIGHT + insets.bottom,
-            paddingTop: spacing.sm,
-            paddingBottom: insets.bottom + spacing.xs,
+            paddingTop: 6,
+            paddingBottom: insets.bottom + 4,
           },
           tabBarIcon: ({ color, focused }) => (
-            <Text style={[styles.tabIcon, { color, opacity: focused ? 1 : 0.85 }]}>
-              {TAB_ICONS[route.name] ?? "•"}
-            </Text>
+            <View style={styles.tabIconWrap}>
+              <Text style={[styles.tabIcon, { color, opacity: focused ? 1 : 0.9 }]}>
+                {TAB_ICONS[route.name] ?? "•"}
+              </Text>
+              {focused ? <View style={styles.activeDot} /> : null}
+            </View>
           ),
         })}
       >
@@ -99,10 +125,7 @@ export default function TabLayout() {
           accessibilityRole="button"
           accessibilityLabel="Open AI chat"
           onPress={() => setChatOpen(true)}
-          style={[
-            styles.fab,
-            { bottom: TAB_BAR_HEIGHT + insets.bottom + spacing.md },
-          ]}
+          style={[styles.fab, { bottom: insets.bottom + 96 }]}
         >
           <Text style={styles.fabIcon}>💬</Text>
         </Pressable>

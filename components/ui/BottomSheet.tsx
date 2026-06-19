@@ -1,5 +1,7 @@
 import type { PropsWithChildren } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  Animated,
   type DimensionValue,
   Modal,
   Pressable,
@@ -19,6 +21,8 @@ interface BottomSheetProps extends PropsWithChildren {
   height?: SheetHeight;
 }
 
+const SLIDE_OFFSET = 400;
+
 function resolveHeight(height: SheetHeight): DimensionValue {
   if (typeof height === "number") return height;
   return height === "full" ? "92%" : "52%";
@@ -31,15 +35,92 @@ export function BottomSheet({
   title,
   height = "half",
 }: BottomSheetProps) {
+  const [mounted, setMounted] = useState(visible);
+  const slideAnim = useRef(new Animated.Value(SLIDE_OFFSET)).current;
+  const backdropAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      setMounted(true);
+      slideAnim.setValue(SLIDE_OFFSET);
+      backdropAnim.setValue(0);
+      Animated.parallel([
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          tension: 100,
+          friction: 12,
+          useNativeDriver: true,
+        }),
+        Animated.timing(backdropAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      return;
+    }
+
+    if (!mounted) return;
+
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: SLIDE_OFFSET,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(backdropAnim, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setMounted(false);
+    });
+  }, [backdropAnim, mounted, slideAnim, visible]);
+
+  const dismiss = () => {
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: SLIDE_OFFSET,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(backdropAnim, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setMounted(false);
+      onClose();
+    });
+  };
+
+  if (!mounted) return null;
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={mounted} transparent animationType="none" onRequestClose={dismiss}>
       <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={[styles.sheet, { height: resolveHeight(height) }]}>
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFillObject,
+            styles.backdrop,
+            { opacity: backdropAnim },
+          ]}
+        >
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={dismiss} />
+        </Animated.View>
+
+        <Animated.View
+          style={[
+            styles.sheet,
+            { height: resolveHeight(height), transform: [{ translateY: slideAnim }] },
+          ]}
+        >
           <View style={styles.dragHandle} />
           {title ? <Text style={styles.title}>{title}</Text> : null}
           <View style={styles.content}>{children}</View>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -49,10 +130,9 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.45)",
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.45)",
   },
   sheet: {
     backgroundColor: uiTheme.surface1,

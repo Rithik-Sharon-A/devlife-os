@@ -36,6 +36,10 @@ import {
   DEFAULT_NOTIFICATION_CONFIG,
   DEFAULT_WATER_CONFIG,
 } from "../utils/storage";
+import type {
+  CelebrationExtraData,
+  CelebrationType,
+} from "../types/celebrations";
 import {
   calculateBMR,
   calculateDailyCalorieGoal,
@@ -155,6 +159,9 @@ type StoreState = {
   aiError: string | null;
   isStoreInitialized: boolean;
   isLoading: boolean;
+  celebrationCallback:
+    | ((type: CelebrationType, data?: CelebrationExtraData) => void)
+    | null;
 };
 
 function buildDailyContextFromState(state: StoreState): DailyContext | null {
@@ -271,6 +278,10 @@ interface AppActions {
   dismissMorningBriefing: () => void;
   clearAllDataAndRestart: () => void;
 
+  setCelebrationCallback: (
+    fn: ((type: CelebrationType, data?: CelebrationExtraData) => void) | null
+  ) => void;
+
   initializeStore: () => Promise<void>;
   persistAll: () => Promise<void>;
 }
@@ -304,6 +315,7 @@ const initialState: StoreState = {
   aiError: null,
   isStoreInitialized: false,
   isLoading: false,
+  celebrationCallback: null,
 };
 
 export const useAppStore = create<AppStore>()(
@@ -717,6 +729,13 @@ export const useAppStore = create<AppStore>()(
     },
 
     logWeight: (weightKg, notes) => {
+      const lastWeight = get().profile?.weightKg ?? weightKg;
+      const existingMetrics = get().bodyMetrics;
+      const startWeight =
+        existingMetrics.length > 0
+          ? existingMetrics[existingMetrics.length - 1]!.weightKg
+          : lastWeight;
+
       const log: BodyMetricLog = {
         id: generateId(),
         date: getTodayString(),
@@ -734,6 +753,28 @@ export const useAppStore = create<AppStore>()(
       void storage.saveBodyMetric(log);
       const profile = get().profile;
       if (profile) void storage.saveUserProfile(profile);
+
+      const totalLost = startWeight - weightKg;
+      const prevTotalLost = startWeight - lastWeight;
+      const emit = get().celebrationCallback;
+
+      if (emit) {
+        if (prevTotalLost < 0.5 && totalLost >= 0.5) {
+          emit("weight_half_kg", { weightLost: totalLost });
+        }
+        if (prevTotalLost < 1.0 && totalLost >= 1.0) {
+          emit("weight_1kg", { weightLost: totalLost });
+        }
+        if (prevTotalLost < 5.0 && totalLost >= 5.0) {
+          emit("weight_5kg", { weightLost: totalLost });
+        }
+      }
+    },
+
+    setCelebrationCallback: (fn) => {
+      set((state) => {
+        state.celebrationCallback = fn;
+      });
     },
 
     setMorningMood: (rating) => {

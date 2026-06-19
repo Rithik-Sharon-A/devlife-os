@@ -1,5 +1,18 @@
 import "react-native-gesture-handler";
 
+// Suppress expo-notifications Expo Go warning
+const originalError = console.error;
+console.error = (...args: unknown[]) => {
+  if (
+    typeof args[0] === "string" &&
+    args[0].includes("expo-notifications") &&
+    args[0].includes("Expo Go")
+  ) {
+    return;
+  }
+  originalError(...args);
+};
+
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
@@ -9,6 +22,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AppBootstrap } from "../components/AppBootstrap";
 import { AppSplash } from "../components/AppSplash";
+import { CelebrationProvider } from "../components/providers/CelebrationProvider";
 import { ToastProvider } from "../components/providers/ToastProvider";
 import { ThemeProvider, useTheme } from "../context/ThemeContext";
 import { useDayRollover } from "../hooks/useDayRollover";
@@ -152,6 +166,7 @@ function RootShell() {
         >
           <Stack.Screen name="index" />
           <Stack.Screen name="onboarding" />
+          <Stack.Screen name="morning" />
           <Stack.Screen name="(tabs)" />
         </Stack>
         {splashMounted ? (
@@ -170,7 +185,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ThemeProvider>
         <ToastProvider>
-          <RootShell />
+          <CelebrationProvider>
+            <RootShell />
+          </CelebrationProvider>
         </ToastProvider>
       </ThemeProvider>
     </SafeAreaProvider>

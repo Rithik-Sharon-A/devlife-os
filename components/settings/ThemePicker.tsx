@@ -2,9 +2,19 @@ import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useTheme } from "../../context/ThemeContext";
-import { radii, spacing } from "../../utils/designTokens";
+import { themeAccents } from "../../utils/designTokens";
 import { getTheme, type AppThemeId } from "../../utils/themes";
-import { typography } from "../../utils/typography";
+
+const THEME_DOT_COLORS: Record<AppThemeId, string> = {
+  midnight: themeAccents.midnight,
+  aurora: themeAccents.aurora,
+  ember: themeAccents.ember,
+  sakura: themeAccents.sakura,
+  ocean: themeAccents.ocean,
+  forest: themeAccents.forest,
+  neonTokyo: themeAccents.neonTokyo,
+  parchment: themeAccents.parchment,
+};
 
 export function ThemePicker() {
   const { themeId, setThemeId, themeOrder } = useTheme();
@@ -14,110 +24,67 @@ export function ThemePicker() {
     () =>
       StyleSheet.create({
         header: {
-          gap: spacing.xs,
-          marginBottom: spacing.md,
-        },
-        caption: {
-          ...typography.caption,
-          color: current.colors.textSecondary,
+          paddingHorizontal: 16,
+          paddingTop: 14,
+          paddingBottom: 12,
+          borderBottomWidth: 1,
+          borderBottomColor: "#1e1e28",
         },
         current: {
-          ...typography.body,
-          color: current.colors.textPrimary,
+          fontSize: 15,
+          fontWeight: "400",
+          color: "#e2e8f0",
         },
         grid: {
           flexDirection: "row",
           flexWrap: "wrap",
-          gap: spacing.md,
+          gap: 8,
+          padding: 16,
         },
         card: {
-          width: "47%",
-          minHeight: 160,
-          borderRadius: radii.lg,
-          padding: spacing.md,
-          borderWidth: 2,
-          borderColor: "transparent",
+          width: "47.5%",
+          height: 56,
+          borderRadius: 14,
+          padding: 14,
+          backgroundColor: "#13131a",
+          borderWidth: 1,
+          borderColor: "#2a2a3a",
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
         },
         cardSelected: {
-          borderColor: current.colors.accent,
-          shadowColor: current.colors.accent,
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.35,
-          shadowRadius: 10,
-        },
-        cardTop: {
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-        },
-        emoji: {
-          fontSize: 22,
-        },
-        radio: {
-          width: 22,
-          height: 22,
-          borderRadius: 11,
-          borderWidth: 2,
-          borderColor: "rgba(255,255,255,0.25)",
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        radioSelected: {
+          borderWidth: 1.5,
           borderColor: current.colors.accent,
         },
-        check: {
-          color: current.colors.accent,
-          fontWeight: "800",
-          fontSize: 14,
-        },
-        preview: {
-          marginTop: spacing.sm,
-          gap: spacing.sm,
-        },
-        previewDots: {
-          flexDirection: "row",
-          gap: spacing.sm,
-        },
-        dotA: {
-          width: 18,
-          height: 18,
-          borderRadius: 9,
-        },
-        dotB: {
-          width: 18,
-          height: 18,
-          borderRadius: 9,
-        },
-        previewLine: {
-          height: 6,
-          borderRadius: 3,
-          backgroundColor: "rgba(255,255,255,0.12)",
-        },
-        previewLineShort: {
-          width: "60%",
-          height: 6,
-          borderRadius: 3,
-          backgroundColor: "rgba(255,255,255,0.08)",
-        },
-        cardFooter: {
-          marginTop: "auto",
-          paddingTop: spacing.md,
+        cardLeft: {
           flexDirection: "row",
           alignItems: "center",
-          justifyContent: "space-between",
+          gap: 10,
+          flex: 1,
+        },
+        dot: {
+          width: 12,
+          height: 12,
+          borderRadius: 6,
         },
         cardName: {
-          fontSize: 15,
+          fontSize: 14,
+          fontWeight: "600",
+          color: "#e2e8f0",
+        },
+        check: {
+          fontSize: 12,
           fontWeight: "700",
+          color: current.colors.accent,
         },
       }),
-    [current.colors]
+    [current.colors.accent]
   );
 
   return (
     <View>
       <View style={styles.header}>
-        <Text style={styles.caption}>APPEARANCE</Text>
         <Text style={styles.current}>
           Current theme: {current.name} {current.emoji}
         </Text>
@@ -127,51 +94,22 @@ export function ThemePicker() {
         {themeOrder.map((id) => {
           const t = getTheme(id);
           const selected = id === themeId;
-          const isLight = t.isLight;
-          const previewLineColor = isLight
-            ? "rgba(44,24,16,0.12)"
-            : "rgba(255,255,255,0.12)";
-          const previewLineMuted = isLight
-            ? "rgba(44,24,16,0.08)"
-            : "rgba(255,255,255,0.08)";
 
           return (
             <Pressable
               key={id}
               onPress={() => setThemeId(id)}
-              style={[
-                styles.card,
-                { backgroundColor: t.colors.background },
-                selected && styles.cardSelected,
-              ]}
+              style={[styles.card, selected && styles.cardSelected]}
             >
-              <View style={styles.cardTop}>
-                <Text style={styles.emoji}>{t.emoji}</Text>
-                <View style={[styles.radio, selected && styles.radioSelected]}>
-                  {selected ? <Text style={styles.check}>✓</Text> : null}
-                </View>
-              </View>
-
-              <View style={styles.preview}>
-                <View style={styles.previewDots}>
-                  <View
-                    style={[styles.dotA, { backgroundColor: t.colors.surface2 }]}
-                  />
-                  <View
-                    style={[styles.dotB, { backgroundColor: t.colors.accent }]}
-                  />
-                </View>
-                <View style={[styles.previewLine, { backgroundColor: previewLineColor }]} />
+              <View style={styles.cardLeft}>
                 <View
-                  style={[styles.previewLineShort, { backgroundColor: previewLineMuted }]}
+                  style={[styles.dot, { backgroundColor: THEME_DOT_COLORS[id] }]}
                 />
-              </View>
-
-              <View style={styles.cardFooter}>
-                <Text style={[styles.cardName, { color: t.colors.textPrimary }]}>
+                <Text style={styles.cardName} numberOfLines={1}>
                   {t.name}
                 </Text>
               </View>
+              {selected ? <Text style={styles.check}>✓</Text> : null}
             </Pressable>
           );
         })}

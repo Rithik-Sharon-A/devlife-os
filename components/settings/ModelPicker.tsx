@@ -8,7 +8,6 @@ import {
 } from "react-native";
 
 import {
-  getModelContextSubtitle,
   getProvider,
   type ProviderModel,
 } from "../../data/providers";
@@ -33,17 +32,13 @@ function matchesSearch(model: ProviderModel, query: string): boolean {
 
 function ModelRow({
   model,
-  providerName,
   selected,
   onPress,
 }: {
   model: ProviderModel;
-  providerName: string;
   selected: boolean;
   onPress: () => void;
 }) {
-  const context = getModelContextSubtitle(model);
-
   return (
     <Pressable
       onPress={onPress}
@@ -52,20 +47,15 @@ function ModelRow({
       accessibilityState={{ selected }}
     >
       <View style={styles.rowMain}>
-        <View style={styles.titleRow}>
-          {selected ? <Text style={styles.check}>✓</Text> : <View style={styles.checkSpacer} />}
-          <Text style={[styles.modelName, selected && styles.modelNameSelected]}>
-            {model.displayName}
-          </Text>
-          {model.isFree ? (
-            <View style={styles.freeBadge}>
-              <Text style={styles.freeBadgeText}>FREE</Text>
-            </View>
-          ) : null}
-        </View>
-        <Text style={styles.subtitle}>
-          {context} · {providerName}
+        {selected ? <Text style={styles.check}>✓</Text> : <View style={styles.checkSpacer} />}
+        <Text style={[styles.modelName, selected && styles.modelNameSelected]}>
+          {model.displayName}
         </Text>
+        {model.isFree ? (
+          <View style={styles.freeBadge}>
+            <Text style={styles.freeBadgeText}>FREE</Text>
+          </View>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -74,13 +64,11 @@ function ModelRow({
 function Section({
   title,
   models,
-  providerName,
   selectedModelId,
   onSelect,
 }: {
   title: string;
   models: ProviderModel[];
-  providerName: string;
   selectedModelId: string;
   onSelect: (modelId: string) => void;
 }) {
@@ -93,7 +81,6 @@ function Section({
         <ModelRow
           key={model.id}
           model={model}
-          providerName={providerName}
           selected={selectedModelId === model.id}
           onPress={() => onSelect(model.id)}
         />
@@ -139,20 +126,22 @@ export function ModelPicker({
           <Text style={styles.empty}>No models match your search.</Text>
         ) : (
           <>
-            <Section
-              title="FREE MODELS"
-              models={freeModels}
-              providerName={provider.displayName}
-              selectedModelId={selectedModelId}
-              onSelect={onSelect}
-            />
-            <Section
-              title="PAID MODELS"
-              models={paidModels}
-              providerName={provider.displayName}
-              selectedModelId={selectedModelId}
-              onSelect={onSelect}
-            />
+            {freeModels.length > 0 ? (
+              <Section
+                title="FREE MODELS"
+                models={freeModels}
+                selectedModelId={selectedModelId}
+                onSelect={onSelect}
+              />
+            ) : null}
+            {paidModels.length > 0 ? (
+              <Section
+                title={freeModels.length > 0 ? "PAID MODELS" : "MODELS"}
+                models={paidModels}
+                selectedModelId={selectedModelId}
+                onSelect={onSelect}
+              />
+            ) : null}
           </>
         )}
       </ScrollView>
@@ -178,34 +167,31 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: uiTheme.textSecondary,
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "600",
     letterSpacing: 0.8,
     marginBottom: 4,
   },
   row: {
     borderWidth: 1,
-    borderColor: uiTheme.border,
-    borderRadius: uiTheme.radiusInput,
-    backgroundColor: uiTheme.surface2,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: "#1e1e28",
+    borderRadius: 14,
+    backgroundColor: "#13131a",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   rowSelected: {
     borderColor: uiTheme.accent,
-    backgroundColor: `${uiTheme.accent}18`,
+    borderWidth: 1.5,
   },
   rowMain: {
-    gap: 4,
-  },
-  titleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
     flexWrap: "wrap",
   },
   check: {
     color: uiTheme.accent,
-    fontWeight: "800",
+    fontWeight: "700",
     fontSize: 14,
     width: 16,
   },
@@ -213,33 +199,26 @@ const styles = StyleSheet.create({
     width: 16,
   },
   modelName: {
-    color: uiTheme.textPrimary,
+    color: "#e2e8f0",
     fontSize: 15,
-    fontWeight: "600",
+    fontWeight: "400",
     flexShrink: 1,
+    flex: 1,
   },
   modelNameSelected: {
-    color: uiTheme.accent,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   freeBadge: {
-    backgroundColor: `${uiTheme.success}22`,
-    borderWidth: 1,
-    borderColor: `${uiTheme.success}66`,
-    borderRadius: uiTheme.radiusPill,
+    backgroundColor: "rgba(52,211,153,0.12)",
+    borderRadius: 99,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
   freeBadgeText: {
-    color: uiTheme.success,
+    color: "#34d399",
     fontSize: 10,
-    fontWeight: "800",
+    fontWeight: "700",
     letterSpacing: 0.4,
-  },
-  subtitle: {
-    color: uiTheme.textSecondary,
-    fontSize: 12,
-    marginLeft: 24,
   },
   empty: {
     color: uiTheme.textSecondary,
