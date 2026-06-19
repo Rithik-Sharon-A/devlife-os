@@ -9,7 +9,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   UIManager,
   View,
 } from "react-native";
@@ -342,17 +341,6 @@ export default function HomeScreen() {
           fontWeight: "800",
           fontSize: 15,
         },
-        settingsButton: {
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          backgroundColor: colors.surface1,
-          alignItems: "center",
-          justifyContent: "center",
-          borderWidth: 1.5,
-          borderColor: `${colors.accent}66`,
-        },
-        settingsIcon: { fontSize: 22 },
         scroll: { flex: 1 },
         content: {
           paddingHorizontal: sp.base,
@@ -538,17 +526,14 @@ export default function HomeScreen() {
         </View>
         <View style={styles.headerRight}>
           {bestStreak > 0 ? <PulsingFire count={bestStreak} size={18} /> : null}
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{getInitials(name)}</Text>
-          </View>
-          <TouchableOpacity
+          <Pressable
             accessibilityRole="button"
             accessibilityLabel="Open settings"
             onPress={() => router.push("/(tabs)/settings")}
-            style={styles.settingsButton}
+            style={styles.avatar}
           >
-            <Text style={styles.settingsIcon}>⚙️</Text>
-          </TouchableOpacity>
+            <Text style={styles.avatarText}>{getInitials(name)}</Text>
+          </Pressable>
         </View>
       </View>
 
