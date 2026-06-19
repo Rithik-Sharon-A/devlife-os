@@ -229,6 +229,7 @@ export default function HealthScreen() {
     setManualSteps,
     clearManualOverride,
     getHistoricalSteps,
+    retryStepCounter,
   } = useStepCounter();
 
   const [sheet, setSheet] = useState<SheetKind>(null);
@@ -536,13 +537,23 @@ export default function HealthScreen() {
             <ActivityIndicator color={colors.accent} style={{ marginVertical: 16 }} />
           ) : stepsError ? (
             <>
-              <Text style={[styles.meta, { color: "#fbbf24" }]}>⚠️ {stepsError}</Text>
-              <TouchableOpacity
-                style={[styles.btn, { marginTop: spacing.sm }]}
-                onPress={() => void Linking.openSettings()}
-              >
-                <Text style={styles.btnText}>Grant Permission</Text>
-              </TouchableOpacity>
+              <Text style={[styles.meta, { color: "#fbbf24", lineHeight: 20 }]}>
+                ⚠️ {stepsError}
+              </Text>
+              <View style={[styles.row, { marginTop: spacing.sm }]}>
+                <TouchableOpacity
+                  style={[styles.btn, { flex: 1 }]}
+                  onPress={() => void Linking.openSettings()}
+                >
+                  <Text style={styles.btnText}>Open Settings</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.btn, { flex: 1 }]}
+                  onPress={() => void retryStepCounter()}
+                >
+                  <Text style={styles.btnText}>Try Again</Text>
+                </TouchableOpacity>
+              </View>
             </>
           ) : (
             <>
