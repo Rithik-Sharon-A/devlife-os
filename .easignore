@@ -1,11 +1,2 @@
-node_modules/
-.expo/
-.git/
-*.log
-.env
-.env.local
-scripts/
-docs/
-*.md
-.DS_Store
-Thumbs.db
+/android
+/ios

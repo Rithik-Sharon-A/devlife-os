@@ -2,6 +2,13 @@ const fs = require('fs');
 const path = require('path');
 
 const pkgRoot = path.join(__dirname, '..', 'node_modules', 'react-native-sensors');
+
+if (!fs.existsSync(pkgRoot)) {
+  console.log('react-native-sensors not installed, skipping patch');
+  process.exit(0);
+}
+
+try {
 const patchRNSensor = (javaPath) => {
   const RNSENSOR_STEP_CASE = `
         case Sensor.TYPE_STEP_COUNTER:
@@ -128,3 +135,7 @@ patchRNSensorsJs(path.join(pkgRoot, 'src/rnsensors.js'));
 patchIndexDts(path.join(pkgRoot, 'index.d.ts'));
 
 console.log('react-native-sensors stepCounter patch applied');
+} catch (error) {
+  console.warn('react-native-sensors patch failed:', error);
+  process.exit(0);
+}
