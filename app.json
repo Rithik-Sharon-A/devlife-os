@@ -30,7 +30,7 @@
         "backgroundColor": "#0a0a0f"
       },
       "package": "com.dayos.app",
-      "versionCode": 3,
+      "versionCode": 5,
       "permissions": [
         "android.permission.ACTIVITY_RECOGNITION",
         "android.permission.BODY_SENSORS",
@@ -45,7 +45,7 @@
       "output": "static"
     },
     "plugins": [
-      "./plugins/withActivityRecognition",
+      "./plugins/withStepCounter",
       "expo-router",
       "expo-font",
       [
