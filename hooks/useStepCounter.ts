@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { AppState, PermissionsAndroid, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NativeStepCounter from '../utils/NativeStepCounter';
 
 const GOAL_KEY = 'dayos:step_goal';
 const MANUAL_KEY = 'dayos:steps:manual:';
@@ -19,84 +18,89 @@ export const useStepCounter = () => {
   const [hasPermission, setHasPermission] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const listenerRef = useRef<any>(null);
+  const subscriptionRef = useRef<any>(null);
+  const initialStepsRef = useRef<number>(-1);
   const isManualRef = useRef(false);
 
   useEffect(() => {
     isManualRef.current = isManual;
   }, [isManual]);
 
-  const requestAndStart = async () => {
-    if (Platform.OS !== 'android') {
-      setIsLoading(false);
-      return;
-    }
+  const requestPermission = async (): Promise<boolean> => {
+    if (Platform.OS !== 'android') return false;
 
     try {
       const granted = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.ACTIVITY_RECOGNITION,
         {
-          title: 'Step Counter Permission',
+          title: 'Step Counter',
           message:
-            'Allow cAI to access your step counter ' +
+            'cAI needs access to your step counter ' +
             'to track your daily activity.',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Cancel',
           buttonPositive: 'Allow',
+          buttonNegative: 'Deny',
         }
       );
+      const ok = granted === PermissionsAndroid.RESULTS.GRANTED;
+      setHasPermission(ok);
+      return ok;
+    } catch {
+      return false;
+    }
+  };
 
-      console.log('[Steps] Permission:', granted);
-
-      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+  const requestAndStart = async () => {
+    try {
+      const granted = await requestPermission();
+      if (!granted) {
         setError(
-          'Physical Activity permission denied.\n' +
-          'Go to Settings → Apps → cAI → ' +
-          'Permissions → Physical Activity → Allow'
+          'Permission denied.\nGo to Settings → ' +
+          'Apps → cAI → Permissions → ' +
+          'Physical Activity → Allow'
         );
-        setHasPermission(false);
         setIsLoading(false);
         return;
       }
 
-      setHasPermission(true);
+      const { stepCounter, SensorTypes, setUpdateIntervalForType } =
+        await import('react-native-sensors');
 
-      const available = await NativeStepCounter.isAvailable();
-      console.log('[Steps] Available:', available);
-      setIsAvailable(available);
+      setUpdateIntervalForType(SensorTypes.stepCounter, 1000);
+      setIsAvailable(true);
 
-      if (!available) {
-        setError('Step counter sensor not found');
-        setIsLoading(false);
-        return;
-      }
+      const subscription = stepCounter.subscribe({
+        next: ({ steps: rawSteps }: { steps: number }) => {
+          if (isManualRef.current) return;
 
-      await NativeStepCounter.startListening();
-      console.log('[Steps] Listening started');
-
-      if (listenerRef.current) {
-        listenerRef.current.remove();
-      }
-
-      listenerRef.current = NativeStepCounter.addStepListener(
-        (newSteps) => {
-          if (!isManualRef.current) {
-            console.log('[Steps] Update:', newSteps);
-            setSteps(newSteps);
+          if (initialStepsRef.current === -1) {
+            initialStepsRef.current = rawSteps;
+            console.log('[Steps] Baseline:', rawSteps);
           }
-        }
-      );
 
-      const current = await NativeStepCounter.getSteps();
-      if (current > 0 && !isManualRef.current) {
-        setSteps(current);
-      }
+          const todaySteps = rawSteps - initialStepsRef.current;
 
+          console.log(
+            '[Steps] Raw:', rawSteps,
+            'Baseline:', initialStepsRef.current,
+            'Today:', todaySteps
+          );
+
+          setSteps(todaySteps);
+        },
+        error: (err: Error) => {
+          console.log('[Steps] Sensor error:', err);
+          setError('Step counter error: ' + err.message);
+          setIsAvailable(false);
+        },
+      });
+
+      subscriptionRef.current = subscription;
       setError(null);
       setIsLoading(false);
     } catch (e: any) {
-      console.log('[Steps] Error:', e);
-      setError('Could not start step counter');
+      console.log('[Steps] Fatal:', e);
+      setError('Could not start: ' + e.message);
+      setIsAvailable(false);
       setIsLoading(false);
     }
   };
@@ -115,6 +119,8 @@ export const useStepCounter = () => {
           setSteps(parseInt(manual, 10));
           setIsManual(true);
           isManualRef.current = true;
+          setIsLoading(false);
+          return;
         }
       } catch {}
 
@@ -123,25 +129,30 @@ export const useStepCounter = () => {
 
     init();
 
-    const sub = AppState.addEventListener('change', async (state) => {
+    const appSub = AppState.addEventListener('change', async (state) => {
       if (state === 'active' && !isManualRef.current) {
-        const current = await NativeStepCounter.getSteps();
-        if (current > 0) setSteps(current);
+        if (!subscriptionRef.current) {
+          await requestAndStart();
+        }
       }
     });
 
     return () => {
-      sub.remove();
-      if (listenerRef.current) {
-        listenerRef.current.remove();
+      appSub.remove();
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
       }
-      NativeStepCounter.stopListening();
     };
   }, []);
 
   const retryStepCounter = async () => {
     setIsLoading(true);
     setError(null);
+    initialStepsRef.current = -1;
+    if (subscriptionRef.current) {
+      subscriptionRef.current.unsubscribe();
+      subscriptionRef.current = null;
+    }
     await requestAndStart();
   };
 
@@ -158,8 +169,8 @@ export const useStepCounter = () => {
     setIsManual(false);
     isManualRef.current = false;
     await AsyncStorage.removeItem(MANUAL_KEY + today);
-    const current = await NativeStepCounter.getSteps();
-    setSteps(current);
+    initialStepsRef.current = -1;
+    await requestAndStart();
   };
 
   const updateGoal = async (newGoal: number) => {

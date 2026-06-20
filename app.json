@@ -30,7 +30,7 @@
         "backgroundColor": "#0a0a0f"
       },
       "package": "com.dayos.app",
-      "versionCode": 5,
+      "versionCode": 6,
       "permissions": [
         "android.permission.ACTIVITY_RECOGNITION",
         "android.permission.BODY_SENSORS",
@@ -45,15 +45,14 @@
       "output": "static"
     },
     "plugins": [
-      "./plugins/withStepCounter",
-      "expo-router",
-      "expo-font",
       [
-        "expo-sensors",
+        "./plugins/withReactNativeSensors",
         {
-          "motionPermission": "Allow cAI to track your daily steps."
+          "MotionUsageDescription": "Allow cAI to track your steps"
         }
       ],
+      "expo-router",
+      "expo-font",
       [
         "expo-build-properties",
         {

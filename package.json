@@ -10,7 +10,8 @@
     "build:android:preview": "eas build --platform android --profile preview",
     "build:android:dev": "eas build --platform android --profile development",
     "build:production": "eas build --platform android --profile production",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "postinstall": "node scripts/patch-react-native-sensors.js"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -24,7 +25,6 @@
     "expo-linking": "~8.0.12",
     "expo-notifications": "~0.32.17",
     "expo-router": "~6.0.24",
-    "expo-sensors": "~15.0.8",
     "expo-status-bar": "~3.0.9",
     "immer": "^10.1.1",
     "lottie-react-native": "~7.3.1",
@@ -34,6 +34,7 @@
     "react-native-gesture-handler": "~2.28.0",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
+    "react-native-sensors": "^7.3.6",
     "react-native-svg": "15.12.1",
     "react-native-web": "^0.21.0",
     "zustand": "^5.0.0"
