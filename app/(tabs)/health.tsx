@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Linking,
-  NativeEventEmitter,
-  NativeModules,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -229,7 +225,6 @@ export default function HealthScreen() {
     isAvailable,
     isLoading: stepsLoading,
     isManual,
-    hasPermission,
     error: stepsError,
     setManualSteps,
     clearManualOverride,
@@ -530,133 +525,6 @@ export default function HealthScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View
-          style={{
-            backgroundColor: "#1a1a24",
-            padding: 16,
-            margin: 16,
-            borderRadius: 12,
-            borderWidth: 1,
-            borderColor: "#f59e0b",
-          }}
-        >
-          <Text
-            style={{
-              color: "#f59e0b",
-              fontSize: 12,
-              fontWeight: "700",
-              marginBottom: 8,
-            }}
-          >
-            STEP DEBUG INFO
-          </Text>
-          <Text style={{ color: "#ffffff", fontSize: 11 }}>
-            Platform: {Platform.OS}
-            {"\n"}
-            Platform Version: {Platform.Version}
-            {"\n"}
-            NativeModules keys:{"\n"}
-            {Object.keys(NativeModules)
-              .filter(
-                (k) =>
-                  k.toLowerCase().includes("step") ||
-                  k.toLowerCase().includes("sensor") ||
-                  k.toLowerCase().includes("pedometer")
-              )
-              .join(", ") || "none found"}
-            {"\n"}
-            {"\n"}
-            Hook steps: {steps}
-            {"\n"}
-            Hook error: {stepsError || "none"}
-            {"\n"}
-            Hook isAvailable: {String(isAvailable)}
-            {"\n"}
-            Hook hasPermission: {String(hasPermission)}
-            {"\n"}
-            Hook isLoading: {String(stepsLoading)}
-            {"\n"}
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          onPress={async () => {
-            try {
-              const { Pedometer } = await import("expo-sensors");
-              const avail = await Pedometer.isAvailableAsync();
-              const perm = await Pedometer.requestPermissionsAsync();
-              const start = new Date();
-              start.setHours(0, 0, 0, 0);
-              const result = await Pedometer.getStepCountAsync(start, new Date());
-              Alert.alert(
-                "Pedometer Test",
-                "Available: " +
-                  avail +
-                  "\n" +
-                  "Permission: " +
-                  JSON.stringify(perm) +
-                  "\n" +
-                  "Steps: " +
-                  JSON.stringify(result)
-              );
-            } catch (e: any) {
-              Alert.alert("Pedometer Error", e.message);
-            }
-          }}
-          style={{
-            backgroundColor: "#7c6aff",
-            padding: 12,
-            margin: 16,
-            borderRadius: 8,
-          }}
-        >
-          <Text style={{ color: "white", textAlign: "center" }}>
-            Test Pedometer Directly
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={async () => {
-            try {
-              const { stepCounter, SensorTypes, setUpdateIntervalForType } =
-                await import("react-native-sensors");
-
-              setUpdateIntervalForType(SensorTypes.stepCounter, 1000);
-
-              const sub = stepCounter.subscribe(
-                ({ steps: rawSteps }) => {
-                  Alert.alert(
-                    "react-native-sensors",
-                    "Raw steps from sensor: " + rawSteps
-                  );
-                  sub.unsubscribe();
-                },
-                (err) => {
-                  Alert.alert("react-native-sensors Error", err.toString());
-                }
-              );
-
-              setTimeout(() => {
-                try {
-                  sub.unsubscribe();
-                } catch {}
-              }, 5000);
-            } catch (e: any) {
-              Alert.alert("react-native-sensors Import Error", e.message);
-            }
-          }}
-          style={{
-            backgroundColor: "#0ea5e9",
-            padding: 12,
-            margin: 16,
-            borderRadius: 8,
-          }}
-        >
-          <Text style={{ color: "white", textAlign: "center" }}>
-            Test react-native-sensors
-          </Text>
-        </TouchableOpacity>
-
         <View style={styles.header}>
           <Text style={styles.title}>Health Hub</Text>
           <Text style={styles.subtitle}>Track your body every day</Text>

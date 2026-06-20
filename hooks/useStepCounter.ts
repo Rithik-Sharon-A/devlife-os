@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { AppState, PermissionsAndroid, Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const GOAL_KEY = 'dayos:step_goal';
 const MANUAL_KEY = 'dayos:steps:manual:';
+const BASELINE_KEY = 'dayos:steps:baseline:';
 const DEFAULT_GOAL = 8000;
 
 const getTodayString = () =>
@@ -18,89 +19,99 @@ export const useStepCounter = () => {
   const [hasPermission, setHasPermission] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const subscriptionRef = useRef<any>(null);
-  const initialStepsRef = useRef<number>(-1);
+  const watchRef = useRef<any>(null);
+  const baselineRef = useRef<number>(-1);
   const isManualRef = useRef(false);
 
   useEffect(() => {
     isManualRef.current = isManual;
   }, [isManual]);
 
-  const requestPermission = async (): Promise<boolean> => {
-    if (Platform.OS !== 'android') return false;
+  const saveBaseline = async (value: number) => {
+    const today = getTodayString();
+    await AsyncStorage.setItem(BASELINE_KEY + today, value.toString());
+  };
 
+  const loadBaseline = async (): Promise<number> => {
+    const today = getTodayString();
     try {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.ACTIVITY_RECOGNITION,
-        {
-          title: 'Step Counter',
-          message:
-            'cAI needs access to your step counter ' +
-            'to track your daily activity.',
-          buttonPositive: 'Allow',
-          buttonNegative: 'Deny',
-        }
-      );
-      const ok = granted === PermissionsAndroid.RESULTS.GRANTED;
-      setHasPermission(ok);
-      return ok;
-    } catch {
-      return false;
-    }
+      const saved = await AsyncStorage.getItem(BASELINE_KEY + today);
+      if (saved !== null) {
+        return parseInt(saved, 10);
+      }
+    } catch {}
+    return -1;
   };
 
   const requestAndStart = async () => {
+    if (Platform.OS !== 'android') {
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const granted = await requestPermission();
+      const { Pedometer } = await import('expo-sensors');
+
+      const available = await Pedometer.isAvailableAsync();
+      setIsAvailable(available);
+
+      if (!available) {
+        setError('Step counter not available');
+        setIsLoading(false);
+        return;
+      }
+
+      const { granted } = await Pedometer.requestPermissionsAsync();
+      setHasPermission(granted);
+
       if (!granted) {
         setError(
-          'Permission denied.\nGo to Settings → ' +
-          'Apps → cAI → Permissions → ' +
-          'Physical Activity → Allow'
+          'Permission denied.\n' +
+          'Go to Settings → Apps → cAI → ' +
+          'Permissions → Physical Activity → Allow'
         );
         setIsLoading(false);
         return;
       }
 
-      const { stepCounter, SensorTypes, setUpdateIntervalForType } =
-        await import('react-native-sensors');
+      let baseline = await loadBaseline();
 
-      setUpdateIntervalForType(SensorTypes.stepCounter, 1000);
-      setIsAvailable(true);
+      if (watchRef.current) {
+        watchRef.current.remove();
+        watchRef.current = null;
+      }
 
-      const subscription = stepCounter.subscribe({
-        next: ({ steps: rawSteps }: { steps: number }) => {
-          if (isManualRef.current) return;
+      watchRef.current = Pedometer.watchStepCount(({ steps: rawSteps }) => {
+        if (isManualRef.current) return;
 
-          if (initialStepsRef.current === -1) {
-            initialStepsRef.current = rawSteps;
-            console.log('[Steps] Baseline:', rawSteps);
-          }
+        console.log(
+          '[Steps] Raw from sensor:',
+          rawSteps,
+          'Baseline:',
+          baseline
+        );
 
-          const todaySteps = rawSteps - initialStepsRef.current;
+        if (baseline === -1) {
+          baseline = rawSteps;
+          baselineRef.current = rawSteps;
+          void saveBaseline(rawSteps);
+          console.log('[Steps] Baseline saved:', rawSteps);
+          setSteps(0);
+          return;
+        }
 
-          console.log(
-            '[Steps] Raw:', rawSteps,
-            'Baseline:', initialStepsRef.current,
-            'Today:', todaySteps
-          );
+        const todaySteps = Math.max(0, rawSteps - baseline);
 
-          setSteps(todaySteps);
-        },
-        error: (err: Error) => {
-          console.log('[Steps] Sensor error:', err);
-          setError('Step counter error: ' + err.message);
-          setIsAvailable(false);
-        },
+        console.log('[Steps] Today steps:', todaySteps);
+        setSteps(todaySteps);
       });
 
-      subscriptionRef.current = subscription;
+      baselineRef.current = baseline;
       setError(null);
       setIsLoading(false);
     } catch (e: any) {
-      console.log('[Steps] Fatal:', e);
+      console.log('[Steps] Error:', e.message);
       setError('Could not start: ' + e.message);
-      setIsAvailable(false);
       setIsLoading(false);
     }
   };
@@ -129,18 +140,20 @@ export const useStepCounter = () => {
 
     init();
 
-    const appSub = AppState.addEventListener('change', async (state) => {
-      if (state === 'active' && !isManualRef.current) {
-        if (!subscriptionRef.current) {
-          await requestAndStart();
+    const appSub = AppState.addEventListener('change', async (nextState) => {
+      if (nextState === 'active' && !isManualRef.current) {
+        if (watchRef.current) {
+          watchRef.current.remove();
+          watchRef.current = null;
         }
+        await requestAndStart();
       }
     });
 
     return () => {
       appSub.remove();
-      if (subscriptionRef.current) {
-        subscriptionRef.current.unsubscribe();
+      if (watchRef.current) {
+        watchRef.current.remove();
       }
     };
   }, []);
@@ -148,10 +161,9 @@ export const useStepCounter = () => {
   const retryStepCounter = async () => {
     setIsLoading(true);
     setError(null);
-    initialStepsRef.current = -1;
-    if (subscriptionRef.current) {
-      subscriptionRef.current.unsubscribe();
-      subscriptionRef.current = null;
+    if (watchRef.current) {
+      watchRef.current.remove();
+      watchRef.current = null;
     }
     await requestAndStart();
   };
@@ -169,7 +181,6 @@ export const useStepCounter = () => {
     setIsManual(false);
     isManualRef.current = false;
     await AsyncStorage.removeItem(MANUAL_KEY + today);
-    initialStepsRef.current = -1;
     await requestAndStart();
   };
 

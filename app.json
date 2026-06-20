@@ -30,7 +30,7 @@
         "backgroundColor": "#0a0a0f"
       },
       "package": "com.dayos.app",
-      "versionCode": 7,
+      "versionCode": 8,
       "permissions": [
         "android.permission.ACTIVITY_RECOGNITION",
         "android.permission.BODY_SENSORS",
