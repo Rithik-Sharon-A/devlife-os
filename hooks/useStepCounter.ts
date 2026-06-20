@@ -1,278 +1,318 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { EventSubscription } from "expo-modules-core";
-import { Pedometer } from "expo-sensors";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, Platform } from "react-native";
+import { useState, useEffect, useRef } from 'react';
+import { Platform, AppState } from 'react-native';
+import AsyncStorage from
+  '@react-native-async-storage/async-storage';
 
-import { APP_NAME } from "../utils/appBrand";
-
-const GOAL_KEY = "dayos:step_goal";
-const MANUAL_KEY = "dayos:steps:manual:";
-const SNAPSHOT_KEY = "dayos:steps:snapshot:";
+const GOAL_KEY = 'dayos:step_goal';
+const MANUAL_KEY = 'dayos:steps:manual:';
 const DEFAULT_GOAL = 8000;
 
-const PERMISSION_DENIED_MSG = `Step counter needs permission. Go to Settings → Apps → ${APP_NAME} → Permissions → Physical Activity → Allow`;
+const getTodayString = () =>
+  new Date().toISOString().split('T')[0];
 
-const getTodayString = () => new Date().toISOString().split("T")[0]!;
+const getMidnight = () => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
 
-export function useStepCounter() {
+export const useStepCounter = () => {
   const [steps, setSteps] = useState(0);
   const [goal, setGoal] = useState(DEFAULT_GOAL);
   const [isAvailable, setIsAvailable] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isManual, setIsManual] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [hasPermission, setHasPermission] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const subscriptionRef = useRef<EventSubscription | null>(null);
-  const watchBaseRef = useRef(0);
-  const stepsRef = useRef(0);
+  // Use ref to store baseline so watchStepCount
+  // closure always has latest value
+  const baselineRef = useRef(0);
+  const watchRef = useRef<any>(null);
+  const intervalRef = useRef<any>(null);
   const isManualRef = useRef(false);
-  const currentDayRef = useRef(getTodayString());
 
-  useEffect(() => {
-    stepsRef.current = steps;
-  }, [steps]);
-
+  // Keep isManual ref in sync
   useEffect(() => {
     isManualRef.current = isManual;
   }, [isManual]);
 
-  const saveSnapshot = async (date: string, count: number) => {
+  // ─────────────────────────────────
+  // CORE: GET TODAY'S STEPS
+  // Reads from hardware sensor
+  // Returns steps from midnight to now
+  // ─────────────────────────────────
+  const getTodaySteps = async (): Promise<number> => {
     try {
-      await AsyncStorage.setItem(SNAPSHOT_KEY + date, count.toString());
-    } catch {
-      // ignore
-    }
-  };
-
-  const loadSnapshot = async (date: string): Promise<number> => {
-    try {
-      const saved = await AsyncStorage.getItem(SNAPSHOT_KEY + date);
-      if (saved !== null) {
-        const parsed = parseInt(saved, 10);
-        if (!Number.isNaN(parsed)) return parsed;
-      }
-    } catch {
-      // ignore
-    }
-    return 0;
-  };
-
-  const loadGoal = async () => {
-    try {
-      const saved = await AsyncStorage.getItem(GOAL_KEY);
-      if (saved) {
-        const parsed = parseInt(saved, 10);
-        if (!Number.isNaN(parsed) && parsed > 0) setGoal(parsed);
-      }
-    } catch {
-      // ignore
-    }
-  };
-
-  const checkManualOverride = async (): Promise<boolean> => {
-    const today = getTodayString();
-    try {
-      const manual = await AsyncStorage.getItem(MANUAL_KEY + today);
-      if (manual !== null) {
-        const count = parseInt(manual, 10);
-        if (!Number.isNaN(count)) {
-          setSteps(count);
-          stepsRef.current = count;
-        }
-        setIsManual(true);
-        return true;
-      }
-    } catch {
-      // ignore
-    }
-    return false;
-  };
-
-  const stopWatch = useCallback(() => {
-    if (subscriptionRef.current) {
-      subscriptionRef.current.remove();
-      subscriptionRef.current = null;
-    }
-  }, []);
-
-  const startWatch = useCallback(() => {
-    stopWatch();
-    watchBaseRef.current = stepsRef.current;
-
-    subscriptionRef.current = Pedometer.watchStepCount(({ steps: liveSteps }) => {
-      const total = watchBaseRef.current + liveSteps;
-      console.log("[Steps] Live update:", liveSteps, "total:", total);
-      setSteps(total);
-      stepsRef.current = total;
-      void saveSnapshot(getTodayString(), total);
-    });
-  }, [stopWatch]);
-
-  const loadTodayStepsFromSensor = useCallback(async () => {
-    if (Platform.OS === "ios") {
-      const start = new Date();
-      start.setHours(0, 0, 0, 0);
+      const { Pedometer } = await import('expo-sensors');
+      const start = getMidnight();
       const end = new Date();
-      const result = await Pedometer.getStepCountAsync(start, end);
-      console.log("[Steps] Today from sensor (iOS):", result.steps);
-      setSteps(result.steps);
-      stepsRef.current = result.steps;
-      await saveSnapshot(getTodayString(), result.steps);
-      return;
+      const result = await Pedometer.getStepCountAsync(
+        start,
+        end
+      );
+      console.log('[Steps] getStepCountAsync:', result.steps);
+      return result.steps;
+    } catch (e) {
+      console.log('[Steps] getStepCountAsync failed:', e);
+      return 0;
+    }
+  };
+
+  // ─────────────────────────────────
+  // SETUP LIVE WATCH
+  // Watches for new steps in real time
+  // Adds to baseline from getStepCountAsync
+  // ─────────────────────────────────
+  const setupWatch = async () => {
+    try {
+      const { Pedometer } = await import('expo-sensors');
+
+      // Remove existing watch
+      if (watchRef.current) {
+        watchRef.current.remove();
+        watchRef.current = null;
+      }
+
+      // Capture baseline at watch start
+      // This is today's steps BEFORE watch begins
+      const baseline = await getTodaySteps();
+      baselineRef.current = baseline;
+      
+      if (!isManualRef.current) {
+        setSteps(baseline);
+      }
+
+      console.log('[Steps] Watch baseline:', baseline);
+
+      // Start watching for NEW steps
+      watchRef.current = Pedometer.watchStepCount(
+        ({ steps: newSteps }) => {
+          if (isManualRef.current) return;
+          
+          // Total = what was there before + new steps
+          const total = baselineRef.current + newSteps;
+          console.log(
+            '[Steps] Watch update:',
+            'baseline:', baselineRef.current,
+            '+ new:', newSteps,
+            '= total:', total
+          );
+          setSteps(total);
+        }
+      );
+
+      console.log('[Steps] Watch started ✅');
+    } catch (e) {
+      console.log('[Steps] Watch setup failed:', e);
+    }
+  };
+
+  // ─────────────────────────────────
+  // SETUP PERIODIC REFRESH
+  // Every 5 minutes re-read from sensor
+  // Catches steps taken while app was in bg
+  // ─────────────────────────────────
+  const setupPeriodicRefresh = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
     }
 
-    const saved = await loadSnapshot(getTodayString());
-    console.log("[Steps] Today from snapshot (Android):", saved);
-    setSteps(saved);
-    stepsRef.current = saved;
-  }, []);
+    intervalRef.current = setInterval(async () => {
+      if (isManualRef.current) return;
+      
+      const fresh = await getTodaySteps();
+      if (fresh > 0) {
+        // Update baseline so watch stays accurate
+        baselineRef.current = fresh;
+        setSteps(fresh);
+        console.log('[Steps] Periodic refresh:', fresh);
+      }
+    }, 5 * 60 * 1000); // every 5 minutes
+  };
 
-  const requestAndStart = useCallback(async () => {
-    if (Platform.OS === "web") {
-      setError("Not available on web");
+  // ─────────────────────────────────
+  // MAIN INIT: REQUEST PERMISSION + START
+  // ─────────────────────────────────
+  const requestAndStart = async () => {
+    if (Platform.OS === 'web') {
       setIsLoading(false);
+      setError('Not available on web');
       return;
     }
-
-    setIsLoading(true);
-    setError(null);
 
     try {
+      const { Pedometer } = await import('expo-sensors');
+
+      // 1. Check hardware availability
       const available = await Pedometer.isAvailableAsync();
-      console.log("[Steps] Hardware available:", available);
+      console.log('[Steps] Available:', available);
       setIsAvailable(available);
 
       if (!available) {
-        setError("Step counter hardware not found");
+        setError(
+          'Step counter hardware not found on this device'
+        );
         setIsLoading(false);
         return;
       }
 
-      const permission = await Pedometer.requestPermissionsAsync();
-      console.log("[Steps] Permission granted:", permission.granted);
-      setHasPermission(permission.granted);
+      // 2. Request permission
+      const { granted } =
+        await Pedometer.requestPermissionsAsync();
+      console.log('[Steps] Permission granted:', granted);
+      setHasPermission(granted);
 
-      if (!permission.granted) {
-        setError(PERMISSION_DENIED_MSG);
+      if (!granted) {
+        setError(
+          'Physical Activity permission needed.\n' +
+          'Go to Settings → Apps → ' +
+          'cAI → Permissions → ' +
+          'Physical Activity → Allow'
+        );
         setIsLoading(false);
         return;
       }
 
-      try {
-        await loadTodayStepsFromSensor();
-      } catch (e) {
-        console.log("[Steps] Initial step read error:", e);
-        setSteps(0);
-        stepsRef.current = 0;
+      // 3. Get today's steps immediately
+      const todaySteps = await getTodaySteps();
+      console.log('[Steps] Initial steps:', todaySteps);
+      
+      if (!isManualRef.current) {
+        setSteps(todaySteps);
+        baselineRef.current = todaySteps;
       }
 
-      startWatch();
+      // 4. Setup live watch for new steps
+      await setupWatch();
+
+      // 5. Setup periodic refresh
+      setupPeriodicRefresh();
 
       setError(null);
       setIsLoading(false);
-      console.log("[Steps] Step counter started ✅");
-    } catch (e) {
-      console.log("[Steps] Fatal error:", e);
-      setError("Could not start step counter");
-      setIsAvailable(false);
+      
+      console.log('[Steps] All setup complete ✅');
+
+    } catch (e: any) {
+      console.log('[Steps] Fatal error:', e);
+      setError('Could not start step counter: ' + e.message);
       setIsLoading(false);
     }
-  }, [loadTodayStepsFromSensor, startWatch]);
+  };
 
-  const refreshOnForeground = useCallback(async () => {
-    if (isManualRef.current || Platform.OS === "web") return;
-
-    try {
-      const permission = await Pedometer.getPermissionsAsync();
-      if (!permission.granted) return;
-
-      if (Platform.OS === "ios") {
-        await loadTodayStepsFromSensor();
-      } else {
-        const saved = await loadSnapshot(getTodayString());
-        if (saved > stepsRef.current) {
-          setSteps(saved);
-          stepsRef.current = saved;
+  // ─────────────────────────────────
+  // HANDLE APP STATE CHANGES
+  // Refresh when app comes to foreground
+  // ─────────────────────────────────
+  useEffect(() => {
+    const subscription = AppState.addEventListener(
+      'change',
+      async (nextState) => {
+        if (nextState === 'active' && !isManualRef.current) {
+          console.log('[Steps] App active, refreshing...');
+          
+          // Get fresh count from sensor
+          const fresh = await getTodaySteps();
+          if (fresh > 0) {
+            baselineRef.current = fresh;
+            setSteps(fresh);
+          }
+          
+          // Restart watch since it may have stopped
+          await setupWatch();
         }
       }
+    );
 
-      startWatch();
-    } catch (e) {
-      console.log("[Steps] Foreground refresh error:", e);
-    }
-  }, [loadTodayStepsFromSensor, startWatch]);
+    return () => subscription.remove();
+  }, []);
 
+  // ─────────────────────────────────
+  // CHECK MANUAL OVERRIDE
+  // ─────────────────────────────────
+  const checkManualOverride = async (): 
+    Promise<boolean> => {
+    const today = getTodayString();
+    try {
+      const saved = await AsyncStorage.getItem(
+        MANUAL_KEY + today
+      );
+      if (saved !== null) {
+        const count = parseInt(saved, 10);
+        setSteps(count);
+        setIsManual(true);
+        isManualRef.current = true;
+        return true;
+      }
+    } catch {}
+    return false;
+  };
+
+  // ─────────────────────────────────
+  // INITIALIZE ON MOUNT
+  // ─────────────────────────────────
   useEffect(() => {
     const init = async () => {
-      await loadGoal();
+      // Load goal
+      try {
+        const saved = await AsyncStorage.getItem(GOAL_KEY);
+        if (saved) setGoal(parseInt(saved, 10));
+      } catch {}
 
+      // Check manual override
       const hasManual = await checkManualOverride();
-      if (hasManual) {
-        try {
-          setIsAvailable(await Pedometer.isAvailableAsync());
-        } catch {
-          setIsAvailable(false);
-        }
-        setIsLoading(false);
-        return;
-      }
-
+      
+      // Always start native counter
+      // (runs alongside, ready when manual cleared)
       await requestAndStart();
-    };
-
-    void init();
-
-    const appStateSub = AppState.addEventListener("change", (state) => {
-      if (state === "background" || state === "inactive") {
-        if (!isManualRef.current) {
-          void saveSnapshot(getTodayString(), stepsRef.current);
+      
+      // If manual override, restore manual value on top
+      if (hasManual) {
+        const today = getTodayString();
+        const saved = await AsyncStorage.getItem(
+          MANUAL_KEY + today
+        );
+        if (saved) {
+          setSteps(parseInt(saved, 10));
         }
-        return;
       }
-
-      if (state !== "active") return;
-
-      const today = getTodayString();
-      if (today !== currentDayRef.current) {
-        currentDayRef.current = today;
-        setIsManual(false);
-        isManualRef.current = false;
-        void requestAndStart();
-        return;
-      }
-
-      void refreshOnForeground();
-    });
-
-    return () => {
-      appStateSub.remove();
-      stopWatch();
     };
-  }, [refreshOnForeground, requestAndStart, stopWatch]);
 
-  const retryStepCounter = useCallback(async () => {
+    init();
+
+    // Cleanup on unmount
+    return () => {
+      if (watchRef.current) {
+        watchRef.current.remove();
+      }
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, []);
+
+  // ─────────────────────────────────
+  // PUBLIC ACTIONS
+  // ─────────────────────────────────
+
+  const retryStepCounter = async () => {
     setIsLoading(true);
     setError(null);
     await requestAndStart();
-  }, [requestAndStart]);
+  };
 
   const setManualSteps = async (count: number) => {
-    const safe = Math.max(0, Math.floor(count));
     const today = getTodayString();
-    stopWatch();
-    setSteps(safe);
-    stepsRef.current = safe;
+    setSteps(count);
     setIsManual(true);
     isManualRef.current = true;
-    setError(null);
     try {
-      await AsyncStorage.setItem(MANUAL_KEY + today, safe.toString());
-      await saveSnapshot(today, safe);
-    } catch {
-      // ignore
-    }
+      await AsyncStorage.setItem(
+        MANUAL_KEY + today,
+        count.toString()
+      );
+    } catch {}
   };
 
   const clearManualOverride = async () => {
@@ -281,93 +321,54 @@ export function useStepCounter() {
     isManualRef.current = false;
     try {
       await AsyncStorage.removeItem(MANUAL_KEY + today);
-    } catch {
-      // ignore
-    }
-    await requestAndStart();
+    } catch {}
+    // Restart to get fresh hardware reading
+    const fresh = await getTodaySteps();
+    setSteps(fresh);
+    baselineRef.current = fresh;
+    await setupWatch();
   };
 
   const updateGoal = async (newGoal: number) => {
     setGoal(newGoal);
     try {
-      await AsyncStorage.setItem(GOAL_KEY, newGoal.toString());
-    } catch {
-      // ignore
-    }
+      await AsyncStorage.setItem(
+        GOAL_KEY,
+        newGoal.toString()
+      );
+    } catch {}
   };
 
-  const getHistoricalSteps = async (
-    daysBack: number
-  ): Promise<{ date: string; steps: number }[]> => {
-    const results: { date: string; steps: number }[] = [];
-    const today = getTodayString();
-
-    for (let i = 0; i < daysBack; i++) {
-      const start = new Date();
-      start.setDate(start.getDate() - i);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(start);
-      end.setHours(23, 59, 59, 999);
-      const dateStr = start.toISOString().split("T")[0]!;
-
-      if (dateStr === today) {
+  const getHistoricalSteps = async (daysBack: number) => {
+    const results = [];
+    try {
+      const { Pedometer } = await import('expo-sensors');
+      for (let i = 0; i < daysBack; i++) {
+        const start = new Date();
+        start.setDate(start.getDate() - i);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(start);
+        end.setHours(23, 59, 59, 999);
+        const dateStr = start.toISOString().split('T')[0];
         try {
-          const manual = await AsyncStorage.getItem(MANUAL_KEY + today);
-          if (manual !== null) {
-            results.push({ date: dateStr, steps: parseInt(manual, 10) || 0 });
-            continue;
-          }
+          const result =
+            await Pedometer.getStepCountAsync(start, end);
+          results.push({
+            date: dateStr,
+            steps: result.steps
+          });
         } catch {
-          // fall through
-        }
-
-        if (Platform.OS === "ios") {
-          try {
-            const permission = await Pedometer.getPermissionsAsync();
-            if (permission.granted) {
-              const result = await Pedometer.getStepCountAsync(start, end);
-              results.push({ date: dateStr, steps: result.steps });
-              await saveSnapshot(dateStr, result.steps);
-              continue;
-            }
-          } catch {
-            // fall through
-          }
-        }
-
-        results.push({ date: dateStr, steps: stepsRef.current });
-        continue;
-      }
-
-      if (Platform.OS === "ios") {
-        try {
-          const permission = await Pedometer.getPermissionsAsync();
-          if (permission.granted) {
-            const result = await Pedometer.getStepCountAsync(start, end);
-            results.push({ date: dateStr, steps: result.steps });
-            await saveSnapshot(dateStr, result.steps);
-            continue;
-          }
-        } catch {
-          // fall through
+          results.push({ date: dateStr, steps: 0 });
         }
       }
-
-      try {
-        const snap = await AsyncStorage.getItem(SNAPSHOT_KEY + dateStr);
-        results.push({
-          date: dateStr,
-          steps: snap !== null ? parseInt(snap, 10) || 0 : 0,
-        });
-      } catch {
-        results.push({ date: dateStr, steps: 0 });
-      }
-    }
-
+    } catch {}
     return results;
   };
 
-  const percentage = Math.min(100, goal > 0 ? Math.round((steps / goal) * 100) : 0);
+  const percentage = Math.min(
+    100,
+    goal > 0 ? Math.round((steps / goal) * 100) : 0
+  );
 
   return {
     steps,
@@ -384,6 +385,4 @@ export function useStepCounter() {
     updateGoal,
     getHistoricalSteps,
   };
-}
-
-export default useStepCounter;
+};

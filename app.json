@@ -30,7 +30,7 @@
         "backgroundColor": "#0a0a0f"
       },
       "package": "com.dayos.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "permissions": [
         "android.permission.ACTIVITY_RECOGNITION",
         "android.permission.BODY_SENSORS",
@@ -51,7 +51,7 @@
       [
         "expo-sensors",
         {
-          "motionPermission": "Allow DayOS to track your daily steps."
+          "motionPermission": "Allow cAI to track your daily steps."
         }
       ],
       [

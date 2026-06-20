@@ -1,39 +1,33 @@
-const { withAndroidManifest } = require("@expo/config-plugins");
+const { withAndroidManifest } =
+  require('@expo/config-plugins');
 
-module.exports = function withActivityRecognition(config) {
-  return withAndroidManifest(config, async (config) => {
-    const androidManifest = config.modResults;
-    const manifest = androidManifest.manifest;
+module.exports = function withActivityRecognition(
+  config
+) {
+  return withAndroidManifest(config, (config) => {
+    const manifest = config.modResults.manifest;
 
-    if (!manifest["uses-permission"]) {
-      manifest["uses-permission"] = [];
+    if (!manifest['uses-permission']) {
+      manifest['uses-permission'] = [];
     }
 
-    const permissions = manifest["uses-permission"];
+    const perms = manifest['uses-permission'];
 
-    const hasPermission = permissions.some(
-      (p) => p.$?.["android:name"] === "android.permission.ACTIVITY_RECOGNITION"
-    );
+    const needed = [
+      'android.permission.ACTIVITY_RECOGNITION',
+      'android.permission.BODY_SENSORS',
+    ];
 
-    if (!hasPermission) {
-      permissions.push({
-        $: {
-          "android:name": "android.permission.ACTIVITY_RECOGNITION",
-        },
-      });
-    }
-
-    const hasBodySensors = permissions.some(
-      (p) => p.$?.["android:name"] === "android.permission.BODY_SENSORS"
-    );
-
-    if (!hasBodySensors) {
-      permissions.push({
-        $: {
-          "android:name": "android.permission.BODY_SENSORS",
-        },
-      });
-    }
+    needed.forEach(permission => {
+      const exists = perms.some(
+        p => p.$?.['android:name'] === permission
+      );
+      if (!exists) {
+        perms.push({
+          $: { 'android:name': permission }
+        });
+      }
+    });
 
     return config;
   });
