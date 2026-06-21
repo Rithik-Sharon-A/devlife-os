@@ -156,10 +156,8 @@ export default function HomeScreen() {
     steps,
     goal: stepGoal,
     percentage: stepPercentage,
-    isAvailable,
     isLoading: stepsLoading,
-    isManual,
-    clearManualOverride,
+    isTracking,
   } = useStepCounter();
   const updateSteps = useAppStore((s) => s.updateSteps);
 
@@ -637,16 +635,8 @@ export default function HomeScreen() {
               steps={steps}
               goal={stepGoal}
               percentage={stepPercentage}
-              isAvailable={isAvailable}
               isLoading={stepsLoading}
-              isManual={isManual}
-              onManualEntry={() => {
-                if (isManual) {
-                  void clearManualOverride();
-                } else {
-                  router.push("/(tabs)/health" as Href);
-                }
-              }}
+              isTracking={isTracking}
               onPress={() => router.push("/(tabs)/health" as Href)}
             />
           </AnimatedCard>

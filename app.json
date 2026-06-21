@@ -30,10 +30,12 @@
         "backgroundColor": "#0a0a0f"
       },
       "package": "com.dayos.app",
-      "versionCode": 8,
+      "versionCode": 9,
       "permissions": [
         "android.permission.ACTIVITY_RECOGNITION",
         "android.permission.BODY_SENSORS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_HEALTH",
         "android.permission.VIBRATE",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.SCHEDULE_EXACT_ALARM",
@@ -45,10 +47,11 @@
       "output": "static"
     },
     "plugins": [
+      "./plugins/withBackgroundActions",
       [
-        "./plugins/withReactNativeSensors",
+        "expo-sensors",
         {
-          "MotionUsageDescription": "Allow cAI to track your steps"
+          "motionPermission": "Allow cAI to track your steps"
         }
       ],
       "expo-router",

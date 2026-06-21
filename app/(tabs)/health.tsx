@@ -37,7 +37,7 @@ import {
 } from "../../utils/tdee";
 import { typography } from "../../utils/typography";
 
-type SheetKind = "steps" | "sleep" | "workout" | "weight" | null;
+type SheetKind = "sleep" | "workout" | "weight" | null;
 
 const EXERCISES: Array<{ type: ExerciseType; label: string; icon: string }> = [
   { type: "walk", label: "Walk", icon: "🚶" },
@@ -222,14 +222,12 @@ export default function HealthScreen() {
     steps,
     goal: stepGoal,
     percentage: stepPct,
-    isAvailable,
     isLoading: stepsLoading,
-    isManual,
+    isTracking,
     error: stepsError,
-    setManualSteps,
-    clearManualOverride,
     getHistoricalSteps,
     retryStepCounter,
+    startTracking,
   } = useStepCounter();
 
   const [sheet, setSheet] = useState<SheetKind>(null);
@@ -237,8 +235,6 @@ export default function HealthScreen() {
   const [weekSleep, setWeekSleep] = useState<number[]>([]);
   const [weekWorkouts, setWeekWorkouts] = useState(0);
   const [weightTrend, setWeightTrend] = useState(0);
-
-  const [manualStepsInput, setManualStepsInput] = useState("");
   const [bedTime, setBedTime] = useState("23:00");
   const [wakeTime, setWakeTime] = useState("07:00");
   const [sleepQuality, setSleepQuality] = useState<QualityRating>(4);
@@ -467,15 +463,6 @@ export default function HealthScreen() {
     [colors]
   );
 
-  const saveManualSteps = async () => {
-    const val = parseInt(manualStepsInput, 10);
-    if (Number.isNaN(val) || val < 0) return;
-    await setManualSteps(val);
-    setSheet(null);
-    setManualStepsInput("");
-    void loadWeekly();
-  };
-
   const saveSleep = () => {
     logSleep({
       date: getTodayString(),
@@ -565,37 +552,35 @@ export default function HealthScreen() {
                 <View style={[styles.progressFill, { width: `${Math.min(100, stepPct)}%` }]} />
               </View>
 
-              {isManual ? (
-                <>
-                  <Text style={styles.meta}>Manually entered today</Text>
-                  <TouchableOpacity
-                    style={[styles.btn, { marginTop: spacing.xs }]}
-                    onPress={() => void clearManualOverride()}
-                  >
-                    <Text style={styles.btnText}>Switch to phone counter</Text>
-                  </TouchableOpacity>
-                </>
-              ) : isAvailable ? (
-                <Text style={[styles.meta, { fontSize: 12, color: "#6b7280" }]}>
-                  Synced with your phone&apos;s step counter
-                </Text>
-              ) : null}
-
-              <TouchableOpacity
-                style={{ marginTop: spacing.sm }}
-                onPress={() => {
-                  if (isManual) {
-                    void clearManualOverride();
-                  } else {
-                    setManualStepsInput(String(steps));
-                    setSheet("steps");
-                  }
-                }}
-              >
-                <Text style={{ fontSize: 12, color: colors.textSecondary }}>
-                  {isManual ? "↩ Switch to auto-count" : "✏️ Enter manually"}
-                </Text>
-              </TouchableOpacity>
+              {isTracking ? (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                    marginTop: spacing.xs,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor: "#34d399",
+                    }}
+                  />
+                  <Text style={[styles.meta, { fontSize: 12, color: "#34d399" }]}>
+                    Counting in background · updates every 5s
+                  </Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.btn, { marginTop: spacing.sm }]}
+                  onPress={() => void startTracking()}
+                >
+                  <Text style={styles.btnText}>Start Counting</Text>
+                </TouchableOpacity>
+              )}
             </>
           )}
 
@@ -805,32 +790,6 @@ export default function HealthScreen() {
           ) : null}
         </View>
       </ScrollView>
-
-      <BottomSheet
-        visible={sheet === "steps"}
-        onClose={() => setSheet(null)}
-        title="How many steps today?"
-      >
-        <View style={styles.sheetForm}>
-          <TextInput
-            value={manualStepsInput}
-            onChangeText={setManualStepsInput}
-            keyboardType="number-pad"
-            placeholder="8000"
-            placeholderTextColor={colors.textSecondary}
-            style={{
-              borderWidth: 1,
-              borderColor: colors.border,
-              borderRadius: 12,
-              padding: 14,
-              color: colors.textPrimary,
-              fontSize: 18,
-              backgroundColor: colors.surface2,
-            }}
-          />
-          <Button label="Save" onPress={() => void saveManualSteps()} />
-        </View>
-      </BottomSheet>
 
       <BottomSheet
         visible={sheet === "sleep"}

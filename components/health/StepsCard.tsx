@@ -9,10 +9,8 @@ interface StepsCardProps {
   steps: number;
   goal: number;
   percentage: number;
-  isAvailable: boolean;
   isLoading: boolean;
-  isManual: boolean;
-  onManualEntry: () => void;
+  isTracking: boolean;
   onPress?: () => void;
 }
 
@@ -20,15 +18,13 @@ export default function StepsCard({
   steps,
   goal,
   percentage,
-  isAvailable,
   isLoading,
-  isManual,
-  onManualEntry,
+  isTracking,
   onPress,
 }: StepsCardProps) {
   const getMotivation = () => {
     if (isLoading) return "Loading...";
-    if (!isAvailable && !isManual) return "Sensor unavailable";
+    if (!isTracking) return "Tap to start counting";
     if (steps === 0) return "Start walking! 🚶";
     if (percentage >= 100) return "Goal crushed! 🎉";
     if (percentage >= 75) return "Almost there! 💪";
@@ -46,25 +42,18 @@ export default function StepsCard({
   const fillWidth = Math.min(100, percentage);
 
   const renderBadge = () => {
-    if (isManual) {
-      return (
-        <View style={styles.manualBadge}>
-          <Text style={styles.manualText}>✏️ Manual</Text>
-        </View>
-      );
-    }
-    if (isAvailable && !isLoading) {
+    if (isTracking && !isLoading) {
       return (
         <View style={styles.liveBadge}>
           <View style={styles.liveDot} />
-          <Text style={styles.liveText}>LIVE</Text>
+          <Text style={styles.liveText}>BG</Text>
         </View>
       );
     }
-    if (!isLoading && !isAvailable) {
+    if (!isLoading && !isTracking) {
       return (
         <View style={styles.unavailableBadge}>
-          <Text style={styles.unavailableText}>Unavailable</Text>
+          <Text style={styles.unavailableText}>Paused</Text>
         </View>
       );
     }
@@ -107,12 +96,6 @@ export default function StepsCard({
       </View>
 
       <Text style={styles.motivation}>{getMotivation()}</Text>
-
-      <TouchableOpacity onPress={onManualEntry} hitSlop={8}>
-        <Text style={styles.manualLink}>
-          {isManual ? "↩ Switch to auto-count" : "✏️ Enter manually"}
-        </Text>
-      </TouchableOpacity>
     </TouchableOpacity>
   );
 }

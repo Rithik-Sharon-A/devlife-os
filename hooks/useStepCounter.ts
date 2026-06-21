@@ -1,10 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  startBackgroundStepCounter,
+  isStepCounterRunning,
+  STEPS_KEY,
+} from '../utils/stepCounterTask';
 
 const GOAL_KEY = 'dayos:step_goal';
 const MANUAL_KEY = 'dayos:steps:manual:';
-const BASELINE_KEY = 'dayos:steps:baseline:';
 const DEFAULT_GOAL = 8000;
 
 const getTodayString = () =>
@@ -13,37 +17,32 @@ const getTodayString = () =>
 export const useStepCounter = () => {
   const [steps, setSteps] = useState(0);
   const [goal, setGoal] = useState(DEFAULT_GOAL);
-  const [isAvailable, setIsAvailable] = useState(false);
+  const [isAvailable, setIsAvailable] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isManual, setIsManual] = useState(false);
   const [hasPermission, setHasPermission] = useState(false);
+  const [isTracking, setIsTracking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const watchRef = useRef<any>(null);
-  const baselineRef = useRef<number>(-1);
   const isManualRef = useRef(false);
+  const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null
+  );
 
-  useEffect(() => {
-    isManualRef.current = isManual;
-  }, [isManual]);
-
-  const saveBaseline = async (value: number) => {
-    const today = getTodayString();
-    await AsyncStorage.setItem(BASELINE_KEY + today, value.toString());
-  };
-
-  const loadBaseline = async (): Promise<number> => {
-    const today = getTodayString();
+  const loadStepsFromStorage = async () => {
     try {
-      const saved = await AsyncStorage.getItem(BASELINE_KEY + today);
-      if (saved !== null) {
-        return parseInt(saved, 10);
+      const today = getTodayString();
+      const saved = await AsyncStorage.getItem(STEPS_KEY + today);
+      if (saved !== null && !isManualRef.current) {
+        const count = parseInt(saved, 10);
+        setSteps(count);
+        return count;
       }
     } catch {}
-    return -1;
+    return 0;
   };
 
-  const requestAndStart = async () => {
+  const startTracking = async () => {
     if (Platform.OS !== 'android') {
       setIsLoading(false);
       return;
@@ -52,21 +51,12 @@ export const useStepCounter = () => {
     try {
       const { Pedometer } = await import('expo-sensors');
 
-      const available = await Pedometer.isAvailableAsync();
-      setIsAvailable(available);
-
-      if (!available) {
-        setError('Step counter not available');
-        setIsLoading(false);
-        return;
-      }
-
       const { granted } = await Pedometer.requestPermissionsAsync();
       setHasPermission(granted);
 
       if (!granted) {
         setError(
-          'Permission denied.\n' +
+          'Permission needed.\n' +
           'Go to Settings → Apps → cAI → ' +
           'Permissions → Physical Activity → Allow'
         );
@@ -74,44 +64,28 @@ export const useStepCounter = () => {
         return;
       }
 
-      let baseline = await loadBaseline();
+      await startBackgroundStepCounter();
 
-      if (watchRef.current) {
-        watchRef.current.remove();
-        watchRef.current = null;
+      const running = await isStepCounterRunning();
+      setIsTracking(running);
+
+      await loadStepsFromStorage();
+
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
       }
 
-      watchRef.current = Pedometer.watchStepCount(({ steps: rawSteps }) => {
-        if (isManualRef.current) return;
-
-        console.log(
-          '[Steps] Raw from sensor:',
-          rawSteps,
-          'Baseline:',
-          baseline
-        );
-
-        if (baseline === -1) {
-          baseline = rawSteps;
-          baselineRef.current = rawSteps;
-          void saveBaseline(rawSteps);
-          console.log('[Steps] Baseline saved:', rawSteps);
-          setSteps(0);
-          return;
+      refreshIntervalRef.current = setInterval(async () => {
+        if (!isManualRef.current) {
+          await loadStepsFromStorage();
         }
+      }, 5000);
 
-        const todaySteps = Math.max(0, rawSteps - baseline);
-
-        console.log('[Steps] Today steps:', todaySteps);
-        setSteps(todaySteps);
-      });
-
-      baselineRef.current = baseline;
       setError(null);
       setIsLoading(false);
     } catch (e: any) {
-      console.log('[Steps] Error:', e.message);
-      setError('Could not start: ' + e.message);
+      console.log('[Steps] Error:', e);
+      setError('Could not start step counter');
       setIsLoading(false);
     }
   };
@@ -135,25 +109,28 @@ export const useStepCounter = () => {
         }
       } catch {}
 
-      await requestAndStart();
+      await startTracking();
     };
 
     init();
 
     const appSub = AppState.addEventListener('change', async (nextState) => {
-      if (nextState === 'active' && !isManualRef.current) {
-        if (watchRef.current) {
-          watchRef.current.remove();
-          watchRef.current = null;
+      if (nextState === 'active') {
+        await loadStepsFromStorage();
+
+        let running = await isStepCounterRunning();
+        if (!running && !isManualRef.current) {
+          await startBackgroundStepCounter();
+          running = await isStepCounterRunning();
         }
-        await requestAndStart();
+        setIsTracking(running);
       }
     });
 
     return () => {
       appSub.remove();
-      if (watchRef.current) {
-        watchRef.current.remove();
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
       }
     };
   }, []);
@@ -161,27 +138,7 @@ export const useStepCounter = () => {
   const retryStepCounter = async () => {
     setIsLoading(true);
     setError(null);
-    if (watchRef.current) {
-      watchRef.current.remove();
-      watchRef.current = null;
-    }
-    await requestAndStart();
-  };
-
-  const setManualSteps = async (count: number) => {
-    const today = getTodayString();
-    setSteps(count);
-    setIsManual(true);
-    isManualRef.current = true;
-    await AsyncStorage.setItem(MANUAL_KEY + today, count.toString());
-  };
-
-  const clearManualOverride = async () => {
-    const today = getTodayString();
-    setIsManual(false);
-    isManualRef.current = false;
-    await AsyncStorage.removeItem(MANUAL_KEY + today);
-    await requestAndStart();
+    await startTracking();
   };
 
   const updateGoal = async (newGoal: number) => {
@@ -201,11 +158,11 @@ export const useStepCounter = () => {
     isAvailable,
     isLoading,
     isManual,
+    isTracking,
     hasPermission,
     error,
     retryStepCounter,
-    setManualSteps,
-    clearManualOverride,
+    startTracking,
     updateGoal,
     getHistoricalSteps: async (_daysBack?: number) => [],
   };

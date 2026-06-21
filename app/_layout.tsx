@@ -16,7 +16,7 @@ console.error = (...args: unknown[]) => {
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -28,6 +28,7 @@ import { ThemeProvider, useTheme } from "../context/ThemeContext";
 import { useDayRollover } from "../hooks/useDayRollover";
 import { useAppStore } from "../store/useAppStore";
 import { radii, spacing } from "../utils/designTokens";
+import { startBackgroundStepCounter } from "../utils/stepCounterTask";
 import { typography } from "../utils/typography";
 
 export const unstable_settings = {
@@ -135,6 +136,12 @@ function RootShell() {
   useEffect(() => {
     void initializeStore();
   }, [initializeStore]);
+
+  useEffect(() => {
+    if (Platform.OS === "android") {
+      startBackgroundStepCounter().catch(console.log);
+    }
+  }, []);
 
   const styles = useMemo(
     () =>
